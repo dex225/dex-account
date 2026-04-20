@@ -11,6 +11,7 @@ services:
       - DEX_EMERGENCY_API_KEY=${DEX_EMERGENCY_API_KEY}
       - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
       - DEX_AUTO_MIGRATE=${DEX_AUTO_MIGRATE:-false}
+      - DEX_SETUP_TOKEN=${DEX_SETUP_TOKEN}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
