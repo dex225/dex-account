@@ -7,6 +7,7 @@ use crate::db::{self, DbPool};
 use crate::error::AppError;
 use crate::models::{RefreshTokenChain, User};
 use crate::services::crypto::CryptoService;
+use super::metrics::{increment_login_failed, increment_login_success, increment_2fa_attempts, record_login_latency, record_refresh_latency, LatencyTimer};
 
 pub struct AuthService {
     pool: DbPool,
@@ -32,15 +33,22 @@ impl AuthService {
         email: &str,
         password: &str,
     ) -> Result<LoginResult, AppError> {
-        let user = db::get_user_by_email(&self.pool, email)
-            .await?
-            .ok_or(AppError::InvalidCredentials)?;
+        let _timer = LatencyTimer::new();
+
+        let user = match db::get_user_by_email(&self.pool, email).await? {
+            Some(u) => u,
+            None => {
+                increment_login_failed();
+                return Err(AppError::InvalidCredentials);
+            }
+        };
 
         if !user.is_active {
             return Err(AppError::UserInactive);
         }
 
         if !self.crypto.verify_password(password, &user.password_hash)? {
+            increment_login_failed();
             return Err(AppError::InvalidCredentials);
         }
 
@@ -76,6 +84,9 @@ impl AuthService {
         )
         .await?;
 
+        increment_login_success();
+        record_login_latency(_timer.elapsed_ms());
+
         Ok(LoginResult::Success {
             access_token,
             refresh_token,
@@ -88,6 +99,8 @@ impl AuthService {
         challenge_token: &str,
         code: &str,
     ) -> Result<LoginResult, AppError> {
+        increment_2fa_attempts();
+
         let user_id = {
             let tokens = self.challenge_tokens.read().await;
             tokens
@@ -132,6 +145,9 @@ impl AuthService {
             expires_at,
         )
         .await?;
+
+        increment_login_success();
+        record_login_latency(LatencyTimer::new().elapsed_ms());
 
         Ok(LoginResult::Success {
             access_token,
