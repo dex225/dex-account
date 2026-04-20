@@ -1,191 +1,152 @@
 # Tarefas Pendentes - DEX Account
 
-## Backend (Rust/Axum)
+## Status Atual
 
-### ✅ Concluído
+### ✅ Backend - PRODUÇÃO
 - Login/logout com JWT + RTR (Refresh Token Rotation)
 - 2FA com TOTP
 - Recuperação de senha
-- Recuperação de emergência (endpoint + CLI)
+- Recuperação de emergência
 - Health checks (/health, /ready)
-- Rate limiting (tower-governor) - 4 limiters configurados
+- Rate limiting com SmartIpKeyExtractor (funciona com Traefik)
 - Prometheus metrics exporter (porta 3001)
-- Migrations automáticas (DEX_AUTO_MIGRATE)
+- Migrations automáticas
 - Docker multi-stage build
 - Cleanup automático de tokens expirados
-- Tracing/logging básico (tracing crate)
+- Tracing/logging
 
-### ⚠️ Concluído (Implementação Parcial)
+### ✅ Frontend - PRONTO PARA DEPLOY
+- Setup: Vite + React + TypeScript
+- Estilização com Tailwind CSS
+- HTTP client com Axios + interceptors
+- AuthContext com estado global
+- Components: Button, Input, Spinner, Toast
+- Pages: LoginPage, TwoFactorPage, RecoveryPage, ResetPage, DashboardPage
+- Setup 2FA com QR Code
+- Dockerfile multi-stage
+- Build commitado no repositório (src/frontend/dist/)
 
-#### Métricas Prometheus Custom
-- Exportador Prometheus configurado na porta 3001 ✅
-- Métricas custom `login_total`, `login_failed_total`, `2fa_attempts_total`, `login_latency_ms` **não instrumentadas** ❌
-- Arquivos: `src/services/metrics.rs` existe mas precisa de instrumentação completa em `auth.rs`
-
-#### Logging Aprimorado
-- Logging básico com tracing ✅
-- `request_id` (UUIDv7), IP, user-agent, user_id (hashed) **não implementados** ❌
-- Middleware `RequestIdMiddleware` não existe
-
-#### Rate Limiting
-- Tower-governor com 4 limiters ✅
-- Bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa **não implementado** ❌
-
-### ⏳ A Fazer (Pré-Produção)
-
-#### 1. Otimização Docker Cache (criar src/lib.rs)
-**Descrição:**
-- Criar `src/lib.rs` que exporta os módulos principais (db, error, models, services, routes)
-- Adaptar `main.rs` para usar `lib::main_module::function()`
-- Permite cache de dependências separada do código
-- Build vai recompilar só código Rust, não deps, quando código muda
-
-**Benefício:** Build mais rápido em produção (deps cached)
-
-**Status:** Pendente
-
-#### 2. OpenTelemetry Tracing Completo
-**Referência SDD:** Seção 13 - Observabilidade
-
-**Descrição:**
-- Implementar spans customizados para: login, 2fa, refresh, logout, emergency-recover
-- Attributes: user_id (hashed), IP, user-agent, status_code
-- Exportação OTLP para coletor (Jaeger, Tempo, Grafana)
-
-**Crates necessários:**
-```toml
-opentelemetry = "0.21"
-opentelemetry-otlp = "0.14"
-tracing-opentelemetry = "0.22"
-```
-
-**Variáveis de ambiente necessárias:**
-- `OTEL_EXPORTER_OTLP_ENDPOINT` - URL do coletor OTLP
-- `OTEL_SERVICE_NAME` - nome do serviço (ex: "dex-account")
-
-**Arquivos a modificar:**
-- `src/main.rs` - inicialização do OTLP tracer
-- `src/services/auth.rs` - adicionar spans nas operações
-- `src/middleware/` - criar middleware de tracing
-
-**Status:** Não implementado - infraestrutura de coleta não disponível
+### ✅ Docker Compose - CONFIGURADO
+- dois serviços: api e frontend
+- Network dokploy-network configurada
+- Labels de health check
+- Pronto para deploy no Dokploy
 
 ---
 
+## Deploy no Dokploy
+
+### ✅ Concluído
+1. docker-compose.yml atualizado com dokploy-network
+2. Documentation DOKPLOY.md atualizada
+3. Frontend dist commitado
+
+### ⏳ Próximos Passos (Usuario)
+1. Criar serviço Docker Compose no Dokploy
+2. Configurar compose path: `./docker-compose.yml`
+3. Configurar variáveis de ambiente
+4. Configurar domínios:
+   - `api.agenciadex.com` → porta 3000
+   - `myaccount.agenciadex.com` → porta 80
+5. Deploy!
+
+---
+
+## Backlog - Melhorias Futuras
+
+### ⚠️ Alto Prioridade
+
+#### 1. Rate Limiting - Lockout 15min após 5 falhas
+**Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa
+
+**Status:** Não implementado
+
+**Arquivos a modificar:**
+- `src/middleware/rate_limit.rs` - adicionar novo limiter
+- `src/routes/auth.rs` - adicionar lógica de lockout
+
+---
+
+### 📊 Médio Prioridade
+
 #### 2. Métricas Prometheus Custom
-**Referência SDD:** Seção 13 - Observabilidade
+**Descrição:** Instrumentar métricas custom:
+- `auth_login_total`
+- `auth_login_failed_total`
+- `auth_2fa_attempts_total`
+- `auth_refresh_latency_ms`
+- `auth_login_latency_ms`
 
-**Descrição:**
-Implementar as métricas definidas no SDD:
-
-| Métrica | Tipo | Descrição |
-|---------|------|-----------|
-| `auth_login_total` | Counter | Total de logins bem-sucedidos |
-| `auth_login_failed_total` | Counter | Total de logins falhados |
-| `auth_2fa_attempts_total` | Counter | Total de tentativas 2FA |
-| `auth_refresh_latency_ms` | Histogram | Latência do refresh token |
-| `auth_login_latency_ms` | Histogram | Latência do login |
+**Status:** Parcial - exportador existe mas métricas não instrumentadas
 
 **Arquivos a modificar:**
 - `src/services/auth.rs` - incrementar contadores e medir latência
 
-**Status:** Parcial - exportador existe mas métricas custom não foram instrumentadas
-
 ---
 
 #### 3. Logging Aprimorado
-**Referência SDD:** Seção 14 - Logging
+**Descrição:** Adicionar request_id (UUIDv7), IP, user-agent aos logs
 
-**Descrição:**
-Melhorar o logging para incluir:
-- `request_id` (UUIDv7) gerado por middleware - **FALTA IMPLEMENTAR**
-- `user_id` (hashed paraanonimizar) quando disponível
-- `ip` do cliente
-- `user_agent`
+**Status:** Parcial - logs existem mas sem request_id
 
-**Campos proibidos de logar (SDD):**
-- Senhas
-- Tokens / refresh_tokens
-- totp_secret
-- api_keys
-
-**Arquivos a modificar:**
+**Arquivos a criar/modificar:**
 - `src/middleware/` - criar RequestIdMiddleware
 - `src/routes/auth.rs` - incluir request_id no contexto
 - `src/services/auth.rs` - adicionar campos contextuais nos logs
 
-**Status:** Parcial - logs existem mas sem request_id
+---
+
+#### 4. Otimização Docker Cache
+**Descrição:** Criar `src/lib.rs` para separar dependências do código
+
+**Benefício:** Build mais rápido em produção (deps cached)
+
+**Arquivos a criar/modificar:**
+- `src/lib.rs` - exportar módulos principais
+- `src/main.rs` - adaptar para usar lib
 
 ---
 
-## Frontend (React)
+### 📊 Baixa Prioridade
 
-**Referência SDD:** Seção 16 - Frontend (DEX Auth UI)
+#### 5. OpenTelemetry Tracing Completo
+**Descrição:** Spans customizados para login, 2fa, refresh, logout
 
-### ✅ Concluído
-- Setup: Vite + React + TypeScript
-- Estilização com Tailwind CSS
-- HTTP client com Axios + interceptors (refresh automático, 401 retry)
-- AuthContext com estado global de autenticação
-- Components: Button, Input, Spinner, Toast
-- Pages: LoginPage, TwoFactorPage, RecoveryPage, ResetPage, DashboardPage
-- Setup 2FA com QR Code (qrcode.react)
-- Dockerfile multi-stage (node:alpine + serve)
-- Domínio configurável via VITE_API_TARGET
+**Crates necessários:**
+- opentelemetry
+- opentelemetry-otlp
+- tracing-opentelemetry
 
-### ⏳ A Fazer
-1. Configurar CI/CD (GitHub Actions)
-2. Criar app `dex-auth-ui` no Dokploy
-3. Deploy via GitHub integration
-4. Configurar CORS no backend com domínio do frontend (se necessário)
-
-**Domínio:** `https://myaccount.agenciadex.com/` (já configurado no backend via `DEX_ALLOWED_ORIGINS`)
+**Status:** Não implementado - infraestrutura não disponível
 
 ---
 
-## Infraestrutura
+## Notas - Rate Limiting
 
-### Pré-Produção
-- [ ] Configurar coletor OTLP (Jaeger ou Grafana Tempo)
-- [ ] Configurar Grafana Dashboard para métricas Prometheus
-- [ ] Testar procedure de backup/restore
-- [ ] Configurar alertas (rate limit, errors, latency)
+O rate limiting atual usa `tower-governor` com `SmartIpKeyExtractor`:
 
-### Produção
-- [ ] Definir domínio do frontend (ex: `https://auth.dex.com.br`)
-- [ ] Atualizar CORS no backend com domínio do frontend
-- [ ] Configurar SSL/TLS (Dokploy/Traefik com Let's Encrypt)
-- [ ] Definir estratégia de rollback
+| Endpoint | Limite |
+|----------|--------|
+| `/auth/login` | 1 req/s, burst 5 |
+| `/auth/verify-2fa` | 1 req/s, burst 5 |
+| `/auth/password/forgot` | 1 req/s, burst 3 |
+| Demais endpoints | 10 req/s, burst 50 |
 
----
-
-## Notas
-
-### Limitação de Taxa
-O rate limiting atual usa `tower-governor` com as seguintes configurações:
-- Login: 1 req/sec, burst 5
-- Verify 2FA: 1 req/sec, burst 5
-- Password Forgot: 1 req/sec, burst 3
-- General: 10 req/sec, burst 50
-
-**Pendência SDD:** "bloqueio por 15 minutos após 5 tentativas incorretas" no verify-2fa não implementado.
+**Pendência:** "bloqueio por 15 minutos após 5 tentativas incorretas" não implementado.
 
 ---
 
 ## Ordem de Implementação Recomendada
 
-1. **Agora (Desenvolvimento):**
-   - ✅ Backend funcional
-   - ⏳ Métricas Prometheus custom (`login_total`, `login_latency_ms`, `refresh_latency_ms`) - 2h
-   - ⏳ Logging com request_id (UUIDv7), IP, user-agent - 1h
-   - ⏳ Rate limiting: lockout 15min após 5 falhas no verify-2fa - 1h
-   - ⏳ Otimização Docker Cache (criar src/lib.rs) - 10min
+1. **Deploy (agora):**
+   - Deploy com Docker Compose no Dokploy
+   - Verificar funcionamiento em produção
 
-2. **Pré-Produção:**
+2. **Próximas Melhorias:**
+   - Rate limiting lockout 15min
+   - Métricas Prometheus custom
+   - Logging aprimorado
+
+3. **Futuro:**
    - OpenTelemetry tracing
-   - Infraestrutura de observabilidade
-
-3. **Produção:**
-   - CI/CD completo
-   - SSL/Domínios
-   - Alertas
+   - Otimização Docker cache

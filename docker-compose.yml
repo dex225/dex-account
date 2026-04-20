@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    expose:
+      - 3000
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - DEX_JWT_SECRET=${DEX_JWT_SECRET}
@@ -17,15 +17,23 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    networks:
+      - dokploy-network
 
   frontend:
     build:
       context: .
       dockerfile: src/frontend/Dockerfile
-    ports:
-      - "80:80"
+    expose:
+      - 80
     environment:
       - VITE_API_TARGET=https://api.agenciadex.com
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

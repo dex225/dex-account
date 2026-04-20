@@ -1,9 +1,10 @@
-# Configuração no Dokploy
+# Configuração no Dokploy - Docker Compose
 
 ## 1. Pré-requisitos
 
 - Servidor Dokploy instalado e configurado
-- Repositório Git conectado ao Dokploy (GitHub, GitLab, etc.)
+- Repositório Git conectado ao Dokploy (GitHub)
+- Domínios configurados no DNS apontando para o servidor
 
 ## 2. Criar o Banco de Dados PostgreSQL
 
@@ -19,21 +20,54 @@
 1. Vá em **Projects** > **Create Project**
 2. **Name:** `dex-account`
 
-## 4. Criar a Aplicação (2 containers com docker-compose)
+## 4. Criar o Serviço Docker Compose
 
-1. Dentro do projeto, clique em **Create Application**
-2. Configure:
+### Passo a Passo:
 
-### General
+1. Dentro do projeto, clique em **Create Service** (não Create Application)
+2. Selecione **Compose Type: Docker Compose**
+3. Configure:
+
+#### Configurações Gerais
 
 - **Name:** `dex-account`
-- **Build Type:** `docker-compose` (para múltiplos containers)
 - **Repository:** `https://github.com/dex225/dex-account`
 - **Branch:** `main`
+- **Compose Path:** `./docker-compose.yml`
 
-### Docker Compose
+#### Variáveis de Ambiente
 
-Crie o arquivo `docker-compose.yml` na raiz do projeto:
+No Dokploy, defina as variáveis no nível do serviço:
+
+| Variável | Descrição |
+|----------|----------|
+| `DATABASE_URL` | `${{pg_dex_account.CONNECTION_URI}}` |
+| `DEX_JWT_SECRET` | Sua chave secreta (mín. 32 caracteres) |
+| `DEX_EMERGENCY_API_KEY` | Chave para recuperação de emergência |
+| `DEX_ALLOWED_ORIGINS` | `https://myaccount.agenciadex.com` |
+| `DEX_AUTO_MIGRATE` | `false` (para produção) |
+
+### Configurar Domínios
+
+Após o deploy, configure os domínios na aba **Domains**:
+
+1. Clique em **Add Domain**
+2. Configure cada serviço:
+
+| Serviço | Domínio | Porta |
+|---------|---------|-------|
+| `api` | `api.agenciadex.com` | 3000 |
+| `frontend` | `myaccount.agenciadex.com` | 80 |
+
+**Importante:** Marque **HTTPS** para cada domínio (Let's Encrypt automático).
+
+### Preview Compose
+
+Use o botão **Preview Compose** para ver como o Dokploy modificará seu arquivo antes do deploy.
+
+## 5. Estrutura do docker-compose.yml
+
+O arquivo `docker-compose.yml` na raiz do projeto:
 
 ```yaml
 services:
@@ -41,276 +75,149 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    expose:
+      - 3000
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - DEX_JWT_SECRET=${DEX_JWT_SECRET}
       - DEX_EMERGENCY_API_KEY=${DEX_EMERGENCY_API_KEY}
       - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
-      - DEX_AUTO_MIGRATE=false
+      - DEX_AUTO_MIGRATE=${DEX_AUTO_MIGRATE:-false}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
+    networks:
+      - dokploy-network
 
   frontend:
     build:
       context: .
       dockerfile: src/frontend/Dockerfile
-    ports:
-      - "80:80"
+    expose:
+      - 80
     environment:
       - VITE_API_TARGET=https://api.agenciadex.com
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
 ```
 
-### Configurar Domínios
+### O Dokploy Adiciona Automaticamente:
 
-1. Vá em **Domains** na aplicação
-2. Configure os domínios para cada serviço:
+Quando você configura domínios na UI, o Dokploy automaticamente:
+- Adiciona labels do Traefik
+- Adiciona a rede `dokploy-network` aos serviços
+- Configura SSL/TLS
 
-| Serviço | Domínio | Porta |
-|---------|---------|-------|
-| `frontend` | `myaccount.agenciadex.com` | 80 |
-| `api` | `api.agenciadex.com` | 3000 |
+## 6. Primeira vez - Rodar Migrations
 
-### Ordem de Deploy
+Para o primeiro deploy, você pode habilitar migrations automáticas:
 
-1. Deploy primeiro o container `api` (ou toda a aplicação de uma vez)
-2. O Traefik do Dokploy roteará cada domínio para o container correto
+1. Adicione a variável: `DEX_AUTO_MIGRATE=true`
+2. Deploy o serviço
+3. Após migrations rodarem, mude para `DEX_AUTO_MIGRATE=false`
+4. Redeploy
 
-## 5. Variáveis de Ambiente
-
-No Dokploy, variáveis podem ser definidas em três níveis:
-
-### Variáveis de Projeto (compartilhadas)
-
-No projeto, defina:
+## 7. Estrutura de Variáveis no Dokploy
 
 ```
-DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
+Projeto (compartilhado)
+└── DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
+
+Serviço Compose
+├── DEX_JWT_SECRET=sua-chave-32-caracteres
+├── DEX_EMERGENCY_API_KEY=sua-chave-emergencia
+└── DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
 ```
 
-### Variáveis da Aplicação (docker-compose)
+## 8. Como o Rate Limiting Funciona
 
-Na aplicação, defina:
+O backend usa `tower-governor` com `SmartIpKeyExtractor`, que lê:
+- `X-Forwarded-For`
+- `X-Real-IP`
+- Fallback para IP direto
 
-```
-DEX_JWT_SECRET=sua-chave-secreta-minimo-32-caracteres
-DEX_EMERGENCY_API_KEY=sua-chave-de-emergencia
-DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
-```
+**Importante:** Para que o rate limiting funcione corretamente atrás do Traefik:
+1. O Traefik deve enviar os headers `X-Forwarded-For` ou `X-Real-IP`
+2. No Dokploy, isso é configurado automáticamente pelo Dokploy
 
-### Ordem de deploy
+## 9. Monitoramento
 
-1. Deploy a aplicação docker-compose (ambos containers são criados juntos)
+Cada serviço pode ser monitorado separadamente:
+- Logs: disponível na aba **Logs**
+- Métricas: Prometheus exporter na porta 3001 (API)
 
-### Referenciando variáveis
-
-O Dokploy permite referenciar variáveis de outros níveis:
-
-```env
-DATABASE_URL=${{project.DATABASE_URL}}
-```
-
-## 6. Configurar Domínio
-
-1. Vá em **Domains** na aplicação
-2. Clique em **Create Domain**
-3. Configure:
-   - **Domain:** `auth.seudominio.com`
-   - **HTTPS:** sim (Let's Encrypt automático)
-
-Ou use domínio gerado: clique no ícone de dados para gerar um domínio `.traefik.me`.
-
-## 7. Deploy - Produção Recomendada
-
-Para produção, é recomendado usar CI/CD com GitHub Actions. Isso separa o build da execução de migrations.
-
-### 7.1 Configurar GitHub Actions
-
-Crie o arquivo `.github/workflows/deploy.yml`:
-
-```yaml
-name: Build, Migrate and Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository }}/dex-account:latest
-          platforms: linux/amd64
-
-  migrate:
-    needs: build
-    runs-on: ubuntu-latest
-    container: postgres
-    steps:
-      - name: Run migrations
-        run: |
-          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
-            -h ${{ secrets.DB_HOST }} \
-            -U ${{ secrets.DB_USER }} \
-            -d dex_account \
-            -f migrations/20240101000000_initial_schema.sql
-
-  deploy:
-    needs: migrate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Dokploy Deploy
-        uses: dokploy/dokploy-action@v1
-        with:
-          api-key: ${{ secrets.DOKPLOY_API_KEY }}
-          application-id: ${{ secrets.DOKPLOY_APP_ID }}
-```
-
-### 7.2 Secrets no GitHub
-
-Configure os seguintes secrets em **Settings** > **Secrets and variables** > **Actions**:
-
-| Secret | Descrição |
-|--------|----------|
-| `DB_HOST` | Host do banco PostgreSQL |
-| `DB_USER` | Usuário do banco |
-| `DB_PASSWORD` | Senha do banco |
-| `DOKPLOY_API_KEY` | API Key do Dokploy |
-| `DOKPLOY_APP_ID` | ID da aplicação no Dokploy |
-
-### 7.3 Alternativa: Build e Deploy pelo Dokploy
-
-Se preferir fazer o build pelo Dokploy:
-
-1. **Primeiro deploy (com migrations):**
-
-   - Adicione a variável: `DEX_AUTO_MIGRATE=true`
-   - Faça o deploy pelo Dokploy
-   - As migrations rodarão automaticamente
-
-2. **Deploys subsequentes (sem migrations):**
-
-   - Remova ou defina: `DEX_AUTO_MIGRATE=false`
-   - Deploy pelo Dokploy
-
-## 8. Configurar Health Check
-
-Para rollbacks automáticos em caso de falha:
-
-1. Vá em **Advanced** > **Swarm Settings**
-2. Configure **Health Check**:
-
-```json
-{
-  "Test": ["CMD", "curl", "-f", "http://localhost:3000/health"],
-  "Interval": 30000000000,
-  "Timeout": 10000000000,
-  "StartPeriod": 30000000000,
-  "Retries": 3
-}
-```
-
-3. Configure **Update Config**:
-
-```json
-{
-  "Parallelism": 1,
-  "Delay": 10000000000,
-  "FailureAction": "rollback",
-  "Order": "start-first"
-}
-```
-
-## 9. Variáveis de Ambiente Resumidas
+## 10. Variáveis de Ambiente Resumidas
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
 | `DATABASE_URL` | Sim | Connection string PostgreSQL |
 | `DEX_JWT_SECRET` | Sim | Segredo JWT (mín. 32 chars) |
 | `DEX_EMERGENCY_API_KEY` | Sim | Chave de emergência |
-| `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS (separadas por vírgula) |
-| `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente (padrão: false) |
+| `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS |
+| `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente |
 | `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo cleanup (padrão: 1) |
-
-## 10. Estrutura de Variáveis no Dokploy
-
-```
-Projeto (shared)
-└── DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
-
-Aplicação
-├── DEX_JWT_SECRET=minha-chave
-├── DEX_EMERGENCY_API_KEY=chave-emergencia
-└── DEX_ALLOWED_ORIGINS=https://app.exemplo.com
-```
 
 ## 11. Troubleshooting
 
 ### Container não inicia
 
-```bash
-# Ver logs em tempo real
-dokploy logs -f dex-account
-
-# Verificar variáveis
-dokploy inspect dex-account
-```
+1. Verificar logs na aba **Logs**
+2. Verificar se variáveis de ambiente estão corretas
+3. Verificar se banco de dados está acessível
 
 ### Erro de conexão banco
 
-1. Verificar se banco e app estão na mesma rede
-2. Confirmar `DATABASE_URL` correto
-3. Testar do container: `docker exec dex-account curl localhost:5432`
+1. Confirmar `DATABASE_URL` correto
+2. Verificar se banco está na mesma rede Docker
+
+### Frontend retorna 502
+
+1. Verificar se o container `frontend` está rodando
+2. Verificar logs do container frontend
+3. Confirmar que o domínio está apontando para a porta 80
 
 ### CORS errors
 
 Garantir que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
-
-### Migrations não rodam
-
-1. Verificar se `DEX_AUTO_MIGRATE=true`
-2. Verificar logs de migrations
-3. Executar manualmente se necessário via Exec do container
 
 ## 12. Segurança em Produção
 
 ### Variáveis Sensíveis
 
 - Nunca commit variáveis com senhas/secrets
-- Usar GitHub Secrets ou variáveis do Dokploy
+- Usar variáveis do Dokploy
 - Rotacionar `DEX_EMERGENCY_API_KEY` periodicamente
 
 ### Network
 
-- Banco deve estar em rede Docker isolada
-- Usar `localhost` ou nome do serviço Docker para conexão interna
-- Nunca expor porta do banco para internet
+- O Dokploy adiciona automaticamente a rede `dokploy-network`
+- Não exponha portas do banco para internet
 
-### Monitoramento
+### Health Checks
 
-- Configurar alerts para `/health` e `/ready`
-- Monitorar logs de erros
-- Configurar backups automáticos do banco via Dokploy
+O health check configurado:
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+```
+
+## 13. CI/CD com GitHub Actions
+
+Consulte a seção de CI/CD no README.md para configuração opcional de deploy automático.
+
+---
+
+**Suporte:** Para dúvidas, consulte a documentação oficial do Dokploy em https://docs.dokploy.com ou entre no Discord.
