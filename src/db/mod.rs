@@ -14,7 +14,11 @@ pub async fn create_pool(database_url: &str) -> Result<DbPool, sqlx::Error> {
         .connect(database_url)
         .await?;
 
-    run_migrations(&pool).await?;
+    if std::env::var("DEX_AUTO_MIGRATE").unwrap_or_else(|_| "false".to_string()) == "true" {
+        run_migrations(&pool).await?;
+    } else {
+        tracing::info!("Auto-migration disabled, skipping");
+    }
 
     Ok(pool)
 }
