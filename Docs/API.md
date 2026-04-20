@@ -300,6 +300,15 @@ GET /ready
 
 ---
 
+### Metrics (Prometheus)
+```
+GET /metrics
+```
+
+**Resposta:** `200 OK` com body no formato Prometheus exposition format
+
+---
+
 ## Códigos de Erro
 
 | HTTP Status | Erro |

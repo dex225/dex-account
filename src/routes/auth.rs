@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Extension, State},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 
 use crate::error::AppError;
 use crate::middleware::auth::UserId;
+use crate::middleware::rate_limit::{
+    general_rate_limit, login_rate_limit, password_forgot_rate_limit, verify_2fa_rate_limit,
+};
 use crate::models::*;
 use crate::services::{AuthService, CryptoService};
 
@@ -30,17 +33,17 @@ pub fn create_router(
     };
 
     Router::new()
-        .route("/auth/login", post(login))
-        .route("/auth/verify-2fa", post(verify_2fa))
+        .route("/auth/login", post(login).layer(login_rate_limit()))
+        .route("/auth/verify-2fa", post(verify_2fa).layer(verify_2fa_rate_limit()))
         .route("/auth/refresh", post(refresh))
         .route("/auth/logout", post(logout))
-        .route("/auth/password/forgot", post(password_forgot))
+        .route("/auth/password/forgot", post(password_forgot).layer(password_forgot_rate_limit()))
         .route("/auth/password/reset", post(password_reset))
-        .route("/auth/2fa/setup", post(setup_2fa))
-        .route("/auth/2fa/enable", post(enable_2fa))
-        .route("/auth/emergency/recover", post(emergency_recover))
-        .route("/users/create", post(create_user))
-        .route("/users/me", post(get_me))
+        .route("/auth/2fa/setup", post(setup_2fa).layer(general_rate_limit()))
+        .route("/auth/2fa/enable", post(enable_2fa).layer(verify_2fa_rate_limit()))
+        .route("/auth/emergency/recover", post(emergency_recover).layer(general_rate_limit()))
+        .route("/users/create", post(create_user).layer(general_rate_limit()))
+        .route("/users/me", get(get_me))
         .with_state(state)
 }
 

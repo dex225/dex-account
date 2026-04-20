@@ -246,7 +246,38 @@ Arquitetura focada em isolamento de recursos e blindagem de contêineres.
 
 ---
 
-## 16. Backup e Restore
+## 16. Frontend (DEX Auth UI)
+Arquitetura do painel de autenticação para usuários finais.
+
+* **Framework:** React 18+ com TypeScript
+* **Arquitetura:** SPA (Single Page Application)
+* **Estado:** React Context + Hooks (sem Redux - complexidade desnecessária para auth)
+* **Estilização:** CSS Modules ou Tailwind CSS (a definir)
+* **Build:** Vite (fast dev, optimized prod builds)
+* **Containerização:** Dockerfile multi-stage, imagem baseado em `node:alpine`
+
+### 16.1 Repositório e Deploy
+* **Modelo:** Monorepo (mesmo repo que `dex-account`)
+  * `/src/frontend/` - código React
+  * `/src/` (existente) - código Rust
+* **Deploy:** Container separado no Dokploy (app `dex-auth-ui`)
+* **Estratégia:** Branch `main` dispara deploy automático de ambos
+
+### 16.2 Endpoints Frontend
+* `/` - Página de login
+* `/2fa` - Verificação 2FA
+* `/recovery` - Recuperação de senha
+* `/dashboard` - Painel do usuário (após login)
+
+### 16.3 Comunicação com Backend
+* Backend API: `http://localhost:3000/api/v1/auth`
+* Em produção: via reverse proxy (Traefik/Dokploy)
+* Headers: `Authorization: Bearer <token>` para endpoints autenticados
+* Cookies: Refresh token gerenciado pelo browser automaticamente
+
+---
+
+## 17. Backup e Restore
 * **Backup:** Via Dokploy (pg_dump agendado)
   * Frequência: diária com retenção de 30 dias
   * Armazenamento: Volume persistido ou object storage externo

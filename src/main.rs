@@ -14,6 +14,7 @@ use axum::{
     routing::get,
     Router,
 };
+use metrics_exporter_prometheus::PrometheusBuilder;
 use tokio::time::interval;
 use axum::http::{HeaderName, Method};
 use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
@@ -43,6 +44,11 @@ async fn ready(State(state): State<AppState>) -> Result<StatusCode, StatusCode> 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    PrometheusBuilder::new()
+        .with_http_listener(([0, 0, 0, 0], 3001))
+        .build()
+        .expect("Failed to build Prometheus exporter");
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
