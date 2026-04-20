@@ -1,0 +1,31 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DEX_JWT_SECRET=${DEX_JWT_SECRET}
+      - DEX_EMERGENCY_API_KEY=${DEX_EMERGENCY_API_KEY}
+      - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
+      - DEX_AUTO_MIGRATE=${DEX_AUTO_MIGRATE:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_TARGET=https://api.agenciadex.com
+    depends_on:
+      - api
+    restart: unless-stopped

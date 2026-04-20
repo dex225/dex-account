@@ -19,53 +19,67 @@
 1. Vá em **Projects** > **Create Project**
 2. **Name:** `dex-account`
 
-## 4. Criar as Aplicações (2 containers)
-
-### 4.1 Aplicação Backend (API)
+## 4. Criar a Aplicação (2 containers com docker-compose)
 
 1. Dentro do projeto, clique em **Create Application**
 2. Configure:
 
-**General:**
-- **Name:** `dex-account-api`
-- **Build Type:** `Dockerfile`
+### General
+
+- **Name:** `dex-account`
+- **Build Type:** `docker-compose` (para múltiplos containers)
 - **Repository:** `https://github.com/dex225/dex-account`
 - **Branch:** `main`
 
-**Dockerfile:**
-- **Dockerfile Path:** `Dockerfile`
-- **Docker Context Path:** `.`
+### Docker Compose
 
-**Port:** `3000`
+Crie o arquivo `docker-compose.yml` na raiz do projeto:
 
-**Domains:**
-- **Domain:** `api.agenciadex.com`
-- **HTTPS:** sim
+```yaml
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DEX_JWT_SECRET=${DEX_JWT_SECRET}
+      - DEX_EMERGENCY_API_KEY=${DEX_EMERGENCY_API_KEY}
+      - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
+      - DEX_AUTO_MIGRATE=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+    restart: unless-stopped
 
-### 4.2 Aplicação Frontend (UI)
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_TARGET=https://api.agenciadex.com
+    depends_on:
+      - api
+    restart: unless-stopped
+```
 
-1. Clique em **Create Application** novamente
-2. Configure:
+### Configurar Domínios
 
-**General:**
-- **Name:** `dex-account-ui`
-- **Build Type:** `Dockerfile`
-- **Repository:** `https://github.com/dex225/dex-account`
-- **Branch:** `main`
+1. Vá em **Domains** na aplicação
+2. Configure os domínios para cada serviço:
 
-**Dockerfile:**
-- **Dockerfile Path:** `src/frontend/Dockerfile`
-- **Docker Context Path:** `.`
+| Serviço | Domínio | Porta |
+|---------|---------|-------|
+| `frontend` | `myaccount.agenciadex.com` | 80 |
+| `api` | `api.agenciadex.com` | 3000 |
 
-**Port:** `80`
+### Ordem de Deploy
 
-**Domains:**
-- **Domain:** `myaccount.agenciadex.com`
-- **HTTPS:** sim
-
-**Build Settings:**
-- **Environment Variables:**
-  - `VITE_API_TARGET=https://api.agenciadex.com`
+1. Deploy primeiro o container `api` (ou toda a aplicação de uma vez)
+2. O Traefik do Dokploy roteará cada domínio para o container correto
 
 ## 5. Variáveis de Ambiente
 
@@ -79,25 +93,19 @@ No projeto, defina:
 DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
 ```
 
-### Variáveis da Aplicação Backend (dex-account-api)
+### Variáveis da Aplicação (docker-compose)
+
+Na aplicação, defina:
 
 ```
 DEX_JWT_SECRET=sua-chave-secreta-minimo-32-caracteres
 DEX_EMERGENCY_API_KEY=sua-chave-de-emergencia
 DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
-DEX_AUTO_MIGRATE=false  # false em produção, true só no primeiro deploy
-```
-
-### Variáveis da Aplicação Frontend (dex-account-ui)
-
-```
-VITE_API_TARGET=https://api.agenciadex.com
 ```
 
 ### Ordem de deploy
 
-1. Deploy **dex-account-api** primeiro (api.agenciadex.com)
-2. Deploy **dex-account-ui** depois (myaccount.agenciadex.com)
+1. Deploy a aplicação docker-compose (ambos containers são criados juntos)
 
 ### Referenciando variáveis
 
