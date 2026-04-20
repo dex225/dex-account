@@ -19,22 +19,53 @@
 1. Vá em **Projects** > **Create Project**
 2. **Name:** `dex-account`
 
-## 4. Criar a Aplicação
+## 4. Criar as Aplicações (2 containers)
+
+### 4.1 Aplicação Backend (API)
 
 1. Dentro do projeto, clique em **Create Application**
 2. Configure:
 
-### General
-
-- **Name:** `dex-account`
-- **Build Type:** `Dockerfile` (recomendado para produção)
+**General:**
+- **Name:** `dex-account-api`
+- **Build Type:** `Dockerfile`
 - **Repository:** `https://github.com/dex225/dex-account`
 - **Branch:** `main`
 
-### Dockerfile
-
+**Dockerfile:**
 - **Dockerfile Path:** `Dockerfile`
 - **Docker Context Path:** `.`
+
+**Port:** `3000`
+
+**Domains:**
+- **Domain:** `api.agenciadex.com`
+- **HTTPS:** sim
+
+### 4.2 Aplicação Frontend (UI)
+
+1. Clique em **Create Application** novamente
+2. Configure:
+
+**General:**
+- **Name:** `dex-account-ui`
+- **Build Type:** `Dockerfile`
+- **Repository:** `https://github.com/dex225/dex-account`
+- **Branch:** `main`
+
+**Dockerfile:**
+- **Dockerfile Path:** `src/frontend/Dockerfile`
+- **Docker Context Path:** `.`
+
+**Port:** `80`
+
+**Domains:**
+- **Domain:** `myaccount.agenciadex.com`
+- **HTTPS:** sim
+
+**Build Settings:**
+- **Environment Variables:**
+  - `VITE_API_TARGET=https://api.agenciadex.com`
 
 ## 5. Variáveis de Ambiente
 
@@ -45,18 +76,28 @@ No Dokploy, variáveis podem ser definidas em três níveis:
 No projeto, defina:
 
 ```
-DATABASE_URL=postgres://dex_account:SUA_SENHA@host:5432/dex_account
+DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
 ```
 
-### Variáveis da Aplicação
-
-Na aplicação, defina:
+### Variáveis da Aplicação Backend (dex-account-api)
 
 ```
 DEX_JWT_SECRET=sua-chave-secreta-minimo-32-caracteres
 DEX_EMERGENCY_API_KEY=sua-chave-de-emergencia
-DEX_ALLOWED_ORIGINS=https://myaccount.seudominio.com,https://app.seudominio.com
+DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
+DEX_AUTO_MIGRATE=false  # false em produção, true só no primeiro deploy
 ```
+
+### Variáveis da Aplicação Frontend (dex-account-ui)
+
+```
+VITE_API_TARGET=https://api.agenciadex.com
+```
+
+### Ordem de deploy
+
+1. Deploy **dex-account-api** primeiro (api.agenciadex.com)
+2. Deploy **dex-account-ui** depois (myaccount.agenciadex.com)
 
 ### Referenciando variáveis
 
