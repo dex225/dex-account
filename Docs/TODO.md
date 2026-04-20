@@ -8,12 +8,28 @@
 - Recuperação de senha
 - Recuperação de emergência (endpoint + CLI)
 - Health checks (/health, /ready)
-- Rate limiting (tower-governor)
+- Rate limiting (tower-governor) - 4 limiters configurados
 - Prometheus metrics exporter (porta 3001)
 - Migrations automáticas (DEX_AUTO_MIGRATE)
-- Docker multi-stage build (imagem scratch)
+- Docker multi-stage build
 - Cleanup automático de tokens expirados
-- Logging estruturado (tracing)
+- Tracing/logging básico (tracing crate)
+
+### ⚠️ Completed (Partial Implementation)
+
+#### Prometheus Metrics Custom
+- Exportador Prometheus configurado na porta 3001 ✅
+- Métricas custom `login_total`, `login_failed_total`, `2fa_attempts_total`, `login_latency_ms` **não instrumentadas** ❌
+- Arquivos: `src/services/metrics.rs` existe mas precisa de instrumentação completa em `auth.rs`
+
+#### Logging Aprimorado
+- Logging básico com tracing ✅
+- `request_id` (UUIDv7), IP, user-agent, user_id (hashed) **não implementados** ❌
+- Middleware `RequestIdMiddleware` não existe
+
+#### Rate Limiting
+- Tower-governor com 4 limiters ✅
+- Bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa **não implementado** ❌
 
 ### ⏳ To Do (Pre-Production)
 
@@ -149,10 +165,9 @@ O rate limiting atual usa `tower-governor` com as seguintes configurações:
 
 1. **Agora (Development):**
    - ✅ Backend funcional
-   - ⏳ Métricas Prometheus custom (2h)
-
-2. **Antes do Frontend:**
-   - Logging aprimorado com request_id (1h)
+   - ⏳ Métricas Prometheus custom (`login_total`, `login_latency_ms`, `refresh_latency_ms`) - 2h
+   - ⏳ Logging com request_id (UUIDv7), IP, user-agent - 1h
+   - ⏳ Rate limiting: lockout 15min após 5 falhas no verify-2fa - 1h
 
 3. **Pré-Produção:**
    - OpenTelemetry tracing
