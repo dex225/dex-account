@@ -15,8 +15,8 @@ use axum::{
     Router,
 };
 use tokio::time::interval;
-use axum::http::HeaderName;
-use tower_http::cors::{AllowHeaders, Any, CorsLayer};
+use axum::http::{HeaderName, Method};
+use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -74,7 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cors = CorsLayer::new()
         .allow_origin(origins)
         .allow_credentials(true)
-        .allow_methods(Any)
+        .allow_methods(AllowMethods::list([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ]))
         .allow_headers(AllowHeaders::list([
             HeaderName::from_static("authorization"),
             HeaderName::from_static("content-type"),
