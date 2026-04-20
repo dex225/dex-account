@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::{migrate::Migrator, PgPool};
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -9,10 +9,26 @@ use crate::models::{PasswordReset, RefreshTokenChain, Role, User};
 pub type DbPool = PgPool;
 
 pub async fn create_pool(database_url: &str) -> Result<DbPool, sqlx::Error> {
-    PgPoolOptions::new()
+    let pool = PgPoolOptions::new()
         .max_connections(10)
         .connect(database_url)
+        .await?;
+
+    run_migrations(&pool).await?;
+
+    Ok(pool)
+}
+
+async fn run_migrations(pool: &DbPool) -> Result<(), sqlx::Error> {
+    sqlx::migrate!("./migrations")
+        .run(pool)
         .await
+        .map_err(|e| {
+            tracing::error!("Migration failed: {:?}", e);
+            e
+        })?;
+    tracing::info!("Migrations completed successfully");
+    Ok(())
 }
 
 pub async fn get_user_by_email(pool: &DbPool, email: &str) -> Result<Option<User>, AppError> {
