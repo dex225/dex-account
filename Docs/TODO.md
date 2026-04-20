@@ -33,7 +33,18 @@
 
 ### ⏳ A Fazer (Pré-Produção)
 
-#### 1. OpenTelemetry Tracing Completo
+#### 1. Otimização Docker Cache (criar src/lib.rs)
+**Descrição:**
+- Criar `src/lib.rs` que exporta os módulos principais (db, error, models, services, routes)
+- Adaptar `main.rs` para usar `lib::main_module::function()`
+- Permite cache de dependências separada do código
+- Build vai recompilar só código Rust, não deps, quando código muda
+
+**Benefício:** Build mais rápido em produção (deps cached)
+
+**Status:** Pendente
+
+#### 2. OpenTelemetry Tracing Completo
 **Referência SDD:** Seção 13 - Observabilidade
 
 **Descrição:**
@@ -168,6 +179,7 @@ O rate limiting atual usa `tower-governor` com as seguintes configurações:
    - ⏳ Métricas Prometheus custom (`login_total`, `login_latency_ms`, `refresh_latency_ms`) - 2h
    - ⏳ Logging com request_id (UUIDv7), IP, user-agent - 1h
    - ⏳ Rate limiting: lockout 15min após 5 falhas no verify-2fa - 1h
+   - ⏳ Otimização Docker Cache (criar src/lib.rs) - 10min
 
 2. **Pré-Produção:**
    - OpenTelemetry tracing
