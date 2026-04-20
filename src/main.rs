@@ -76,7 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let origins: Vec<_> = allowed_origins
         .split(',')
-        .map(|s| s.trim().parse().expect("Invalid origin in DEX_ALLOWED_ORIGINS"))
+        .map(|s| s.trim().trim_end_matches('/'))
+        .map(|s| s.parse().expect("Invalid origin in DEX_ALLOWED_ORIGINS"))
         .collect();
 
     let cors = CorsLayer::new()
