@@ -15,7 +15,8 @@ use axum::{
     Router,
 };
 use tokio::time::interval;
-use tower_http::cors::{Any, CorsLayer};
+use axum::http::HeaderName;
+use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -74,7 +75,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_origin(origins)
         .allow_credentials(true)
         .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_headers(AllowHeaders::list([
+            HeaderName::from_static("authorization"),
+            HeaderName::from_static("content-type"),
+            HeaderName::from_static("x-emergency-key"),
+        ]));
 
     let auth_router = create_router(auth.clone(), crypto.clone(), emergency_api_key);
 
