@@ -152,6 +152,7 @@ Para rollbacks automáticos em caso de falha:
 | `DEX_JWT_SECRET` | Sim | Segredo JWT (mín. 32 chars) |
 | `DEX_EMERGENCY_API_KEY` | Sim | Chave de emergência |
 | `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS (separadas por vírgula) |
+| `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente (padrão: false) |
 | `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo cleanup (padrão: 1) |
 
 ## Estrutura de Variáveis no Dokploy

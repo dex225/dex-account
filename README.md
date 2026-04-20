@@ -31,6 +31,7 @@ cp .env.example .env
 | `DEX_JWT_SECRET` | Sim | Segredo para assinar JWTs (mín. 32 caracteres) |
 | `DEX_EMERGENCY_API_KEY` | Sim | Chave para recuperação de emergência |
 | `DEX_ALLOWED_ORIGINS` | Sim | URLs permitidas para CORS (separadas por vírgula) |
+| `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente (padrão: false) |
 | `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo para cleanup de tokens expirados (padrão: 1) |
 
 ## Desenvolvimento
