@@ -19,7 +19,6 @@ services:
     restart: unless-stopped
     networks:
       - dokploy-network
-      - webgateway
 
   frontend:
     build:
@@ -34,10 +33,7 @@ services:
     restart: unless-stopped
     networks:
       - dokploy-network
-      - webgateway
 
 networks:
   dokploy-network:
-    external: true
-  webgateway:
     external: true
