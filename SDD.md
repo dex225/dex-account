@@ -202,8 +202,9 @@ Arquitetura focada em isolamento de recursos e blindagem de contêineres.
 * **Ferramenta:** `sqlx-cli` com `sqlx migrate`
 * **Diretório:** `migrations/` na raiz do projeto
 * **Convenção:** Formato `YYYYMMddHHMMSS_descricao` (ex: `20240101000000_initial_schema`)
-* **Primeira migration:** `001_initial_schema` - Cria todas as tabelas do SDD
-* **CI/CD:** Validação automática das migrations em pipelines
+* **Primeira migration:** `20240101000000_initial_schema` - Cria todas as tabelas do SDD
+* **Execução automática:** Controlada por variável `DEX_AUTO_MIGRATE` (padrão: `false`)
+* **Produção:** Executar via CI/CD antes do deploy (não usar `DEX_AUTO_MIGRATE=true` em produção)
 
 ---
 

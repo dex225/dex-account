@@ -76,22 +76,16 @@ DATABASE_URL=${{project.DATABASE_URL}}
 
 Ou use domínio gerado: clique no ícone de dados para gerar um domínio `.traefik.me`.
 
-## 7. Build e Deploy
+## 7. Deploy - Produção Recomendada
 
-### Opção A: Build no Dokploy (Desenvolvimento)
+Para produção, é recomendado usar CI/CD com GitHub Actions. Isso separa o build da execução de migrations.
 
-1. Clique em **Deploy** no painel da aplicação
-2. O Dokploy construirá a imagem usando o Dockerfile
-3. Aguarde até o deploy completar
+### 7.1 Configurar GitHub Actions
 
-### Opção B: Build Externo + Deploy (Produção Recomendada)
-
-Conforme a documentação oficial, para produção é recomendado buildar externamente:
-
-1. **Configure GitHub Actions** para buildar e pushar ao registry:
+Crie o arquivo `.github/workflows/deploy.yml`:
 
 ```yaml
-name: Build and Push
+name: Build, Migrate and Deploy
 
 on:
   push:
@@ -103,18 +97,75 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: seu-dockerhub/dex-account:latest
+          tags: ghcr.io/${{ github.repository }}/dex-account:latest
+          platforms: linux/amd64
+
+  migrate:
+    needs: build
+    runs-on: ubuntu-latest
+    container: postgres
+    steps:
+      - name: Run migrations
+        run: |
+          PGPASSWORD=${{ secrets.DB_PASSWORD }} psql \
+            -h ${{ secrets.DB_HOST }} \
+            -U ${{ secrets.DB_USER }} \
+            -d dex_account \
+            -f migrations/20240101000000_initial_schema.sql
+
+  deploy:
+    needs: migrate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Dokploy Deploy
+        uses: dokploy/dokploy-action@v1
+        with:
+          api-key: ${{ secrets.DOKPLOY_API_KEY }}
+          application-id: ${{ secrets.DOKPLOY_APP_ID }}
 ```
 
-2. **Crie a aplicação no Dokploy** com:
-   - **Build Type:** `Docker`
-   - **Docker Image:** `seu-dockerhub/dex-account:latest`
+### 7.2 Secrets no GitHub
+
+Configure os seguintes secrets em **Settings** > **Secrets and variables** > **Actions**:
+
+| Secret | Descrição |
+|--------|----------|
+| `DB_HOST` | Host do banco PostgreSQL |
+| `DB_USER` | Usuário do banco |
+| `DB_PASSWORD` | Senha do banco |
+| `DOKPLOY_API_KEY` | API Key do Dokploy |
+| `DOKPLOY_APP_ID` | ID da aplicação no Dokploy |
+
+### 7.3 Alternativa: Build e Deploy pelo Dokploy
+
+Se preferir fazer o build pelo Dokploy:
+
+1. **Primeiro deploy (com migrations):**
+
+   - Adicione a variável: `DEX_AUTO_MIGRATE=true`
+   - Faça o deploy pelo Dokploy
+   - As migrations rodarão automaticamente
+
+2. **Deploys subsequentes (sem migrations):**
+
+   - Remova ou defina: `DEX_AUTO_MIGRATE=false`
+   - Deploy pelo Dokploy
 
 ## 8. Configurar Health Check
 
@@ -155,18 +206,19 @@ Para rollbacks automáticos em caso de falha:
 | `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente (padrão: false) |
 | `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo cleanup (padrão: 1) |
 
-## Estrutura de Variáveis no Dokploy
+## 10. Estrutura de Variáveis no Dokploy
 
 ```
 Projeto (shared)
 └── DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
 
 Aplicação
-└── DEX_JWT_SECRET=minha-chave
+├── DEX_JWT_SECRET=minha-chave
+├── DEX_EMERGENCY_API_KEY=chave-emergencia
 └── DEX_ALLOWED_ORIGINS=https://app.exemplo.com
 ```
 
-## Troubleshooting
+## 11. Troubleshooting
 
 ### Container não inicia
 
@@ -187,3 +239,29 @@ dokploy inspect dex-account
 ### CORS errors
 
 Garantir que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
+
+### Migrations não rodam
+
+1. Verificar se `DEX_AUTO_MIGRATE=true`
+2. Verificar logs de migrations
+3. Executar manualmente se necessário via Exec do container
+
+## 12. Segurança em Produção
+
+### Variáveis Sensíveis
+
+- Nunca commit variáveis com senhas/secrets
+- Usar GitHub Secrets ou variáveis do Dokploy
+- Rotacionar `DEX_EMERGENCY_API_KEY` periodicamente
+
+### Network
+
+- Banco deve estar em rede Docker isolada
+- Usar `localhost` ou nome do serviço Docker para conexão interna
+- Nunca expor porta do banco para internet
+
+### Monitoramento
+
+- Configurar alerts para `/health` e `/ready`
+- Monitorar logs de erros
+- Configurar backups automáticos do banco via Dokploy
