@@ -8,6 +8,7 @@ Serviço de autenticação (IAM) para o ecossistema da Digital Expansion.
 - **Framework:** Axum
 - **Banco de Dados:** PostgreSQL
 - **ORM:** SQLx
+- **Cache de métricas:** Prometheus
 
 ## Requisitos
 
@@ -52,7 +53,7 @@ cargo run
 ### Build Docker
 
 ```bash
-docker build --target production -t dex-account .
+docker build -t dex-account .
 ```
 
 ### Deploy com Dokploy
@@ -67,6 +68,18 @@ Consulte [Docs/DOKPLOY.md](Docs/DOKPLOY.md#71-configurar-github-actions) para co
 
 Veja [Docs/API.md](Docs/API.md) para documentação completa dos endpoints.
 
+## Funcionalidades
+
+- [x] Login/logout com JWT + Refresh Token Rotation (RTR)
+- [x] Autenticação em dois fatores (2FA) com TOTP
+- [x] Recuperação de senha
+- [x] Recuperação de emergência
+- [x] Rate limiting por IP
+- [x] Métricas Prometheus (porta 3001)
+- [x] Health checks (/health, /ready)
+- [x] Cleanup automático de tokens expirados
+- [x] Migrations automáticas
+
 ## Estrutura do Projeto
 
 ```
@@ -80,15 +93,23 @@ dex-account/
 │   ├── bin/dex-account-recovery.rs
 │   ├── db/mod.rs
 │   ├── error/mod.rs
-│   ├── middleware/auth.rs
+│   ├── middleware/
+│   │   ├── auth.rs
+│   │   ├── mod.rs
+│   │   └── rate_limit.rs
 │   ├── models/mod.rs
-│   ├── routes/auth.rs
+│   ├── routes/
+│   │   ├── auth.rs
+│   │   └── mod.rs
 │   └── services/
 │       ├── auth.rs
-│       └── crypto.rs
+│       ├── crypto.rs
+│       ├── metrics.rs
+│       └── mod.rs
 ├── Docs/
 │   ├── API.md
-│   └── DOKPLOY.md
+│   ├── DOKPLOY.md
+│   └── TODO.md
 ├── .env.example
 └── .gitignore
 ```
@@ -106,6 +127,23 @@ dex-account/
 ### Ambiente Development
 
 Para desenvolvimento local, você pode usar `DEX_AUTO_MIGRATE=true` para rodar migrations automaticamente.
+
+## Rate Limiting
+
+O serviço implementa rate limiting por IP usando `tower-governor`:
+
+| Endpoint | Limite |
+|----------|--------|
+| `/auth/login` | 1 req/s, burst 5 |
+| `/auth/verify-2fa` | 1 req/s, burst 5 |
+| `/auth/password/forgot` | 1 req/s, burst 3 |
+| Demais endpoints | 10 req/s, burst 50 |
+
+## Monitoring
+
+- **Health:** `GET /health` - Liveness probe
+- **Ready:** `GET /ready` - Readiness probe (verifica DB)
+- **Metrics:** `GET :3001/metrics` - Métricas Prometheus
 
 ## Troubleshooting
 
@@ -125,3 +163,7 @@ Verifique se `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem e
 docker logs dex-account
 docker exec dex-account env
 ```
+
+## Tarefas Pendentes
+
+Veja [Docs/TODO.md](Docs/TODO.md) para lista de tarefas pendientes (pré-produção e produção).
