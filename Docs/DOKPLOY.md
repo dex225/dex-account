@@ -118,7 +118,45 @@ Quando você configura domínios na UI, o Dokploy automaticamente:
 - Adiciona a rede `dokploy-network` aos serviços
 - Configura SSL/TLS
 
-## 6. Primeira vez - Rodar Migrations
+**Importante:** Não adicione manualmente a rede `webgateway` - ela não existe no Dokploy.
+
+## 6. Build do Frontend (IMPORTANTE)
+
+### Variáveis de Ambiente Build-time vs Runtime
+
+**Backend (Rust):** Lê variáveis em **tempo de execução** - quando o programa inicia, ele busca `std::env::var("VAR_NAME")`. Mudanças no Docker Compose funcionam imediatamente.
+
+**Frontend (Vite/React):** As variáveis `VITE_*` são lidas e "hardcoded" no bundle JavaScript durante o **build**. Quando você roda `npm run build`, o Vite substitui todas as referências `import.meta.env.VITE_API_TARGET` pelo valor real naquele momento.
+
+```
+npm run build (build time)
+├── VITE_API_TARGET=https://api.agenciadex.com  ← valor lido aqui
+└── output: index.js com "https://api.agenciadex.com" hardcoded
+```
+
+Depois disso, mudar a variável no Docker Compose **não faz diferença nenhuma**.
+
+### Passos para Rebuildar o Frontend
+
+Se você mudar `VITE_API_TARGET`, precisa rebuildar locally e commitar o novo `dist/`:
+
+```bash
+# 1. Vá para o diretório do frontend
+cd src/frontend
+
+# 2. Build com a variável correta
+VITE_API_TARGET=https://api.agenciadex.com npm run build
+
+# 3. Isso gera novos arquivos em src/frontend/dist/
+
+# 4. Commit e push
+cd ../..
+git add src/frontend/dist/
+git commit -m "fix: update API URL in frontend bundle"
+git push
+```
+
+## 7. Primeira vez - Rodar Migrations
 
 Para o primeiro deploy, você pode habilitar migrations automáticas:
 
@@ -127,7 +165,7 @@ Para o primeiro deploy, você pode habilitar migrations automáticas:
 3. Após migrations rodarem, mude para `DEX_AUTO_MIGRATE=false`
 4. Redeploy
 
-## 7. Estrutura de Variáveis no Dokploy
+## 8. Estrutura de Variáveis no Dokploy
 
 ```
 Projeto (compartilhado)
@@ -139,7 +177,7 @@ Serviço Compose
 └── DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
 ```
 
-## 8. Como o Rate Limiting Funciona
+## 9. Como o Rate Limiting Funciona
 
 O backend usa `tower-governor` com `SmartIpKeyExtractor`, que lê:
 - `X-Forwarded-For`
@@ -148,15 +186,15 @@ O backend usa `tower-governor` com `SmartIpKeyExtractor`, que lê:
 
 **Importante:** Para que o rate limiting funcione corretamente atrás do Traefik:
 1. O Traefik deve enviar os headers `X-Forwarded-For` ou `X-Real-IP`
-2. No Dokploy, isso é configurado automáticamente pelo Dokploy
+2. No Dokploy, isso é configurado automaticamente pelo Dokploy
 
-## 9. Monitoramento
+## 10. Monitoramento
 
 Cada serviço pode ser monitorado separadamente:
 - Logs: disponível na aba **Logs**
 - Métricas: Prometheus exporter na porta 3001 (API)
 
-## 10. Variáveis de Ambiente Resumidas
+## 11. Variáveis de Ambiente Resumidas
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
@@ -165,9 +203,8 @@ Cada serviço pode ser monitorado separadamente:
 | `DEX_EMERGENCY_API_KEY` | Sim | Chave de emergência |
 | `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS |
 | `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente |
-| `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo cleanup (padrão: 1) |
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### Container não inicia
 
@@ -186,11 +223,31 @@ Cada serviço pode ser monitorado separadamente:
 2. Verificar logs do container frontend
 3. Confirmar que o domínio está apontando para a porta 80
 
+### API retorna 404 mas container está rodando
+
+**Causa comum:** O container da API não tem `curl` instalado, então o healthcheck falha.
+
+O Dockerfile da API (runtime stage) precisa ter curl:
+```dockerfile
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates libssl3 curl && rm -rf /var/lib/apt/lists
+```
+
+Sem curl, o healthcheck `curl -f http://localhost:3000/health` falha, e o Traefik não consegue detectar o container.
+
+### Frontend chama localhost:3000 em vez da API correta
+
+**Causa:** O frontend foi buildado com a variável `VITE_API_TARGET` errada ou não foi rebuildado após mudança.
+
+O valor de `VITE_API_TARGET` é hardcoded no bundle JavaScript no momento do build. Para corrigir:
+1. Rebuild o frontend localmente com o valor correto
+2. Commit e push do novo `dist/`
+
 ### CORS errors
 
 Garantir que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
 
-## 12. Segurança em Produção
+## 13. Segurança em Produção
 
 ### Variáveis Sensíveis
 
@@ -214,9 +271,15 @@ healthcheck:
   retries: 3
 ```
 
-## 13. CI/CD com GitHub Actions
+## 14. Problemas Conhecidos e Soluções
 
-Consulte a seção de CI/CD no README.md para configuração opcional de deploy automático.
+| Problema | Solução |
+|----------|---------|
+| Healthcheck falha com "curl not found" | Adicionar `curl` ao Dockerfile da API |
+| Traefik retorna 404 para API | Verificar se container está na network `dokploy-network` e se curl está instalado |
+| Frontend chama localhost:3000 | Rebuild o frontend com `VITE_API_TARGET` correto e commitar dist/ |
+| Deploy falha com "webgateway not found" | Remover `webgateway` do docker-compose.yml (não existe no Dokploy) |
+| Rate limiting não funciona | Usar `SmartIpKeyExtractor` ao invés de `PeerIpKeyExtractor` |
 
 ---
 

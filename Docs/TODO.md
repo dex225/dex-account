@@ -1,4 +1,4 @@
-# Tarefas Pendentes - DEX Account
+# Tarefas - DEX Account
 
 ## Status Atual
 
@@ -14,6 +14,7 @@
 - Docker multi-stage build
 - Cleanup automático de tokens expirados
 - Tracing/logging
+- **curl adicionado ao container** para healthcheck funcionar
 
 ### ✅ Frontend - PRONTO PARA DEPLOY
 - Setup: Vite + React + TypeScript
@@ -24,7 +25,7 @@
 - Pages: LoginPage, TwoFactorPage, RecoveryPage, ResetPage, DashboardPage
 - Setup 2FA com QR Code
 - Dockerfile multi-stage
-- Build commitado no repositório (src/frontend/dist/)
+- **dist/ commitado no repositório (precisa rebuild se mudar VITE_API_TARGET)**
 
 ### ✅ Docker Compose - CONFIGURADO
 - dois serviços: api e frontend
@@ -34,21 +35,23 @@
 
 ---
 
-## Deploy no Dokploy
+## Deploy no Dokploy - COMPLETO
 
-### ✅ Concluído
-1. docker-compose.yml atualizado com dokploy-network
-2. Documentation DOKPLOY.md atualizada
-3. Frontend dist commitado
+### ✅ Conferir após deploy
+1. API: https://api.agenciadex.com/health → 200 OK
+2. Frontend: https://myaccount.agenciadex.com/ → 200 OK
 
-### ⏳ Próximos Passos (Usuario)
-1. Criar serviço Docker Compose no Dokploy
-2. Configurar compose path: `./docker-compose.yml`
-3. Configurar variáveis de ambiente
-4. Configurar domínios:
-   - `api.agenciadex.com` → porta 3000
-   - `myaccount.agenciadex.com` → porta 80
-5. Deploy!
+### ⚠️ Frontend - Rebuild Necessário
+Se o frontend estiver chamando `localhost:3000` em vez de `https://api.agenciadex.com`:
+
+```bash
+cd src/frontend
+VITE_API_TARGET=https://api.agenciadex.com npm run build
+cd ../..
+git add src/frontend/dist/
+git commit -m "fix: update API URL in frontend bundle"
+git push
+```
 
 ---
 
@@ -139,8 +142,9 @@ O rate limiting atual usa `tower-governor` com `SmartIpKeyExtractor`:
 ## Ordem de Implementação Recomendada
 
 1. **Deploy (agora):**
-   - Deploy com Docker Compose no Dokploy
-   - Verificar funcionamiento em produção
+   - ✅ Deploy com Docker Compose no Dokploy
+   - ✅ Verificar funcionamento em produção
+   - ⚠️ Rebuild frontend se necessário
 
 2. **Próximas Melhorias:**
    - Rate limiting lockout 15min
