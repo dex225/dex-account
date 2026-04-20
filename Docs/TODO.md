@@ -1,8 +1,8 @@
-# Pending Tasks - DEX Account
+# Tarefas Pendentes - DEX Account
 
 ## Backend (Rust/Axum)
 
-### ✅ Completed
+### ✅ Concluído
 - Login/logout com JWT + RTR (Refresh Token Rotation)
 - 2FA com TOTP
 - Recuperação de senha
@@ -15,9 +15,9 @@
 - Cleanup automático de tokens expirados
 - Tracing/logging básico (tracing crate)
 
-### ⚠️ Completed (Partial Implementation)
+### ⚠️ Concluído (Implementação Parcial)
 
-#### Prometheus Metrics Custom
+#### Métricas Prometheus Custom
 - Exportador Prometheus configurado na porta 3001 ✅
 - Métricas custom `login_total`, `login_failed_total`, `2fa_attempts_total`, `login_latency_ms` **não instrumentadas** ❌
 - Arquivos: `src/services/metrics.rs` existe mas precisa de instrumentação completa em `auth.rs`
@@ -31,10 +31,10 @@
 - Tower-governor com 4 limiters ✅
 - Bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa **não implementado** ❌
 
-### ⏳ To Do (Pre-Production)
+### ⏳ A Fazer (Pré-Produção)
 
 #### 1. OpenTelemetry Tracing Completo
-**SDD Reference:** Seção 13 - Observabilidade
+**Referência SDD:** Seção 13 - Observabilidade
 
 **Descrição:**
 - Implementar spans customizados para: login, 2fa, refresh, logout, emergency-recover
@@ -62,7 +62,7 @@ tracing-opentelemetry = "0.22"
 ---
 
 #### 2. Métricas Prometheus Custom
-**SDD Reference:** Seção 13 - Observabilidade
+**Referência SDD:** Seção 13 - Observabilidade
 
 **Descrição:**
 Implementar as métricas definidas no SDD:
@@ -75,11 +75,6 @@ Implementar as métricas definidas no SDD:
 | `auth_refresh_latency_ms` | Histogram | Latência do refresh token |
 | `auth_login_latency_ms` | Histogram | Latência do login |
 
-**Crates necessários:**
-```toml
-metrics = "0.22"  # já existe
-```
-
 **Arquivos a modificar:**
 - `src/services/auth.rs` - incrementar contadores e medir latência
 
@@ -88,7 +83,7 @@ metrics = "0.22"  # já existe
 ---
 
 #### 3. Logging Aprimorado
-**SDD Reference:** Seção 14 - Logging
+**Referência SDD:** Seção 14 - Logging
 
 **Descrição:**
 Melhorar o logging para incluir:
@@ -114,7 +109,7 @@ Melhorar o logging para incluir:
 
 ## Frontend (React)
 
-**SDD Reference:** Seção 16 - Frontend (DEX Auth UI)
+**Referência SDD:** Seção 16 - Frontend (DEX Auth UI)
 
 **Status:** Não iniciado
 
@@ -150,7 +145,7 @@ Melhorar o logging para incluir:
 
 ## Notas
 
-### Rate Limiting
+### Limitação de Taxa
 O rate limiting atual usa `tower-governor` com as seguintes configurações:
 - Login: 1 req/sec, burst 5
 - Verify 2FA: 1 req/sec, burst 5
@@ -163,17 +158,17 @@ O rate limiting atual usa `tower-governor` com as seguintes configurações:
 
 ## Ordem de Implementação Recomendada
 
-1. **Agora (Development):**
+1. **Agora (Desenvolvimento):**
    - ✅ Backend funcional
    - ⏳ Métricas Prometheus custom (`login_total`, `login_latency_ms`, `refresh_latency_ms`) - 2h
    - ⏳ Logging com request_id (UUIDv7), IP, user-agent - 1h
    - ⏳ Rate limiting: lockout 15min após 5 falhas no verify-2fa - 1h
 
-3. **Pré-Produção:**
+2. **Pré-Produção:**
    - OpenTelemetry tracing
    - Infraestrutura de observabilidade
 
-4. **Produção:**
+3. **Produção:**
    - CI/CD completo
    - SSL/Domínios
    - Alertas
