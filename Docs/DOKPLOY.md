@@ -1,160 +1,188 @@
 # Configuração no Dokploy
 
-## 1. Preparar o Projeto no GitHub
+## 1. Pré-requisitos
 
-O projeto já está configurado em: `https://github.com/dex225/dex-account`
+- Servidor Dokploy instalado e configurado
+- Repositório Git conectado ao Dokploy (GitHub, GitLab, etc.)
 
-Certifique-se de que o repositório está conectado ao Dokploy.
+## 2. Criar o Banco de Dados PostgreSQL
 
-## 2. Criar o Banco de Dados
-
-1. No painel Dokploy, vá em **Databases**
-2. Clique em **Create Database**
-3. Selecione **PostgreSQL**
-4. Configure:
+1. Vá em **Databases** > **Create Database**
+2. Selecione **PostgreSQL**
+3. Configure:
    - **Name:** `dex_account`
-   - **User:** `dex_account`
-   - **Password:** (generate secure password)
-5. Anote a **Connection URL** (formato: `postgres://user:pass@host:5432/dex_account`)
+   - **Default Database:** `dex_account`
+4. Após criar, vá em **Connection** para obter a `DATABASE_URL`
 
-## 3. Criar o Projeto no Dokploy
+## 3. Criar o Projeto
 
 1. Vá em **Projects** > **Create Project**
 2. **Name:** `dex-account`
-3. **Type:** Private
-4. **Git Repository:** `https://github.com/dex225/dex-account`
 
-## 4. Criar o Servidor (Server)
+## 4. Criar a Aplicação
 
-1. Vá em **Servers** > **Create Server**
-2. Configure o servidor Docker onde o container será deployed
-
-## 5. Criar o App (Docker)
-
-1. Vá em **Projects** > **dex-account** > **Create App**
+1. Dentro do projeto, clique em **Create Application**
 2. Configure:
 
 ### General
 
 - **Name:** `dex-account`
-- **App Type:** `Docker`
-- **Server:** (selecione o servidor criado)
-- **Port:** `3000`
+- **Build Type:** `Dockerfile` (recomendado para produção)
+- **Repository:** `https://github.com/dex225/dex-account`
+- **Branch:** `main`
 
-### Build
+### Dockerfile
 
-- **Dockerfile Location:** `Dockerfile`
-- **Build Method:** `nixpacks` ou `dockerfile`
+- **Dockerfile Path:** `Dockerfile`
+- **Docker Context Path:** `.`
 
-### Environment Variables
+## 5. Variáveis de Ambiente
 
-Adicione todas as variáveis obrigatórias:
+No Dokploy, variáveis podem ser definidas em três níveis:
 
-```env
-DATABASE_URL=postgres://dex_account:SUA_SENHA@host_dokploy:5432/dex_account
-DEX_JWT_SECRET=gerar-uma-chave-secreta-com-minimo-32-caracteres
-DEX_EMERGENCY_API_KEY=gerar-uma-chave-aleatoria-segura
+### Variáveis de Projeto (compartilhadas)
+
+No projeto, defina:
+
+```
+DATABASE_URL=postgres://dex_account:SUA_SENHA@host:5432/dex_account
+```
+
+### Variáveis da Aplicação
+
+Na aplicação, defina:
+
+```
+DEX_JWT_SECRET=sua-chave-secreta-minimo-32-caracteres
+DEX_EMERGENCY_API_KEY=sua-chave-de-emergencia
 DEX_ALLOWED_ORIGINS=https://myaccount.seudominio.com,https://app.seudominio.com
 ```
 
-### Persistent Storage (opcional)
+### Referenciando variáveis
 
-Se desejar persistência de dados:
-- **Volume:** `/var/lib/postgresql/data`
-- **Mount Path:** `/data`
+O Dokploy permite referenciar variáveis de outros níveis:
 
-## 6. Configurar o Dockerfile
-
-O Dokploy pode usar o Dockerfile existente. Certifique-se de que ele está na raiz:
-
-```dockerfile
-# build stage
-FROM rust:1.75 AS builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release
-
-# runtime stage
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists
-COPY --from=builder /app/target/release/dex-account /usr/local/bin/
-EXPOSE 3000
-CMD ["dex-account"]
+```env
+DATABASE_URL=${{project.DATABASE_URL}}
 ```
 
-Ou use multi-stage build com `scratch` para imagem mínima:
+## 6. Configurar Domínio
 
-```dockerfile
-# stage 1
-FROM rust:1.75 AS builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release --target x86_64-unknown-linux-musl
-
-# stage 2
-FROM alpine:edge
-RUN apk add --no-cache ca-certificates
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/dex-account /usr/local/bin/
-EXPOSE 3000
-CMD ["dex-account"]
-```
-
-## 7. Configurar o Domínio (opcional)
-
-1. Vá em **App** > **dex-account** > **Domains**
-2. Clique em **Add Domain**
+1. Vá em **Domains** na aplicação
+2. Clique em **Create Domain**
 3. Configure:
    - **Domain:** `auth.seudominio.com`
-   - **HTTPS:** sim (Let's Encrypt)
-   - **WWW Redirect:** não
+   - **HTTPS:** sim (Let's Encrypt automático)
 
-## 8. Migrar o Banco
+Ou use domínio gerado: clique no ícone de dados para gerar um domínio `.traefik.me`.
 
-1. Vá em **App** > **dex-account** > **Containers**
-2. Clique no container e depois em **Exec**
-3. Execute o comando de migration:
+## 7. Build e Deploy
 
-```bash
-# Se usar sqlx-cli
-sqlx migrate run
+### Opção A: Build no Dokploy (Desenvolvimento)
 
-# Ou via psql diretamente
-psql $DATABASE_URL -f migrations/001_initial_schema.sql
+1. Clique em **Deploy** no painel da aplicação
+2. O Dokploy construirá a imagem usando o Dockerfile
+3. Aguarde até o deploy completar
+
+### Opção B: Build Externo + Deploy (Produção Recomendada)
+
+Conforme a documentação oficial, para produção é recomendado buildar externamente:
+
+1. **Configure GitHub Actions** para buildar e pushar ao registry:
+
+```yaml
+name: Build and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: seu-dockerhub/dex-account:latest
 ```
 
-## 9. Verificar Health Checks
+2. **Crie a aplicação no Dokploy** com:
+   - **Build Type:** `Docker`
+   - **Docker Image:** `seu-dockerhub/dex-account:latest`
 
-1. Acesse `/health` e `/ready` para confirmar que o serviço está rodando
-2. Monitore os logs no painel do Dokploy
+## 8. Configurar Health Check
 
-## Variáveis de Ambiente Resumidas
+Para rollbacks automáticos em caso de falha:
 
-| Variável | Descrição |
-|----------|----------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `DEX_JWT_SECRET` | Segredo JWT (mín. 32 chars) |
-| `DEX_EMERGENCY_API_KEY` | Chave de recuperação de emergência |
-| `DEX_ALLOWED_ORIGINS` | URLs CORS (separadas por vírgula) |
-| `DEX_CLEANUP_INTERVAL_HOURS` | Intervalo cleanup (padrão: 1) |
+1. Vá em **Advanced** > **Swarm Settings**
+2. Configure **Health Check**:
+
+```json
+{
+  "Test": ["CMD", "curl", "-f", "http://localhost:3000/health"],
+  "Interval": 30000000000,
+  "Timeout": 10000000000,
+  "StartPeriod": 30000000000,
+  "Retries": 3
+}
+```
+
+3. Configure **Update Config**:
+
+```json
+{
+  "Parallelism": 1,
+  "Delay": 10000000000,
+  "FailureAction": "rollback",
+  "Order": "start-first"
+}
+```
+
+## 9. Variáveis de Ambiente Resumidas
+
+| Variável | Obrigatório | Descrição |
+|----------|-------------|-----------|
+| `DATABASE_URL` | Sim | Connection string PostgreSQL |
+| `DEX_JWT_SECRET` | Sim | Segredo JWT (mín. 32 chars) |
+| `DEX_EMERGENCY_API_KEY` | Sim | Chave de emergência |
+| `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS (separadas por vírgula) |
+| `DEX_CLEANUP_INTERVAL_HOURS` | Não | Intervalo cleanup (padrão: 1) |
+
+## Estrutura de Variáveis no Dokploy
+
+```
+Projeto (shared)
+└── DATABASE_URL=${{pg_dex_account.CONNECTION_URI}}
+
+Aplicação
+└── DEX_JWT_SECRET=minha-chave
+└── DEX_ALLOWED_ORIGINS=https://app.exemplo.com
+```
 
 ## Troubleshooting
 
 ### Container não inicia
 
 ```bash
-# Ver logs
-docker logs dex-account
+# Ver logs em tempo real
+dokploy logs -f dex-account
 
 # Verificar variáveis
-docker exec dex-account env
+dokploy inspect dex-account
 ```
 
-### Erro de conexão com banco
+### Erro de conexão banco
 
-1. Verificar se o banco está na mesma rede Docker
+1. Verificar se banco e app estão na mesma rede
 2. Confirmar `DATABASE_URL` correto
-3. Testar conexão: `docker exec dex-account psql $DATABASE_URL -c "SELECT 1"`
+3. Testar do container: `docker exec dex-account curl localhost:5432`
 
 ### CORS errors
 
-Confirmar que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
+Garantir que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
