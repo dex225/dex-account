@@ -136,25 +136,26 @@ npm run build (build time)
 
 Depois disso, mudar a variável no Docker Compose **não faz diferença nenhuma**.
 
-### Passos para Rebuildar o Frontend
+### Solução: Arquivo .env.production
 
-Se você mudar `VITE_API_TARGET`, precisa rebuildar locally e commitar o novo `dist/`:
+O projeto já está configurado com arquivos de ambiente:
 
-```bash
-# 1. Vá para o diretório do frontend
-cd src/frontend
+- `.env` - valores para desenvolvimento local (`localhost:3000`)
+- `.env.production` - valores para produção (`https://api.agenciadex.com`)
 
-# 2. Build com a variável correta
-VITE_API_TARGET=https://api.agenciadex.com npm run build
+Quando o Vite faz build (modo production por padrão), ele usa automaticamente `.env.production`.
 
-# 3. Isso gera novos arquivos em src/frontend/dist/
+**Se precisar mudar a URL da API em produção:**
+1. Edite `src/frontend/.env.production`
+2. Rebuild local: `cd src/frontend && npm run build`
+3. Commit e push do novo `dist/`
 
-# 4. Commit e push
-cd ../..
-git add src/frontend/dist/
-git commit -m "fix: update API URL in frontend bundle"
-git push
-```
+### Variáveis de Ambiente do Frontend
+
+| Arquivo | Uso | Valor |
+|---------|-----|-------|
+| `.env` | Desenvolvimento local | `http://localhost:3000` |
+| `.env.production` | Produção (build) | `https://api.agenciadex.com` |
 
 ## 7. Primeira vez - Rodar Migrations
 
