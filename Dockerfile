@@ -2,8 +2,13 @@
 FROM rust:latest AS builder
 WORKDIR /app
 
-COPY . .
+# Etapa 1: Copiar só deps ( muda só quando Cargo.* muda )
+COPY Cargo.toml Cargo.lock* ./
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists
+RUN cargo build --release && touch /app/src/.keep
+
+# Etapa 2: Copiar código ( só isso invalida rebuild do código )
+COPY src/ ./src/
 RUN cargo build --release
 
 # Runtime stage
