@@ -4,16 +4,15 @@ Serviço de autenticação (IAM) para o ecossistema da Digital Expansion.
 
 ## Stack
 
-- **Linguagem:** Rust
-- **Framework:** Axum
-- **Banco de Dados:** PostgreSQL
-- **ORM:** SQLx
+- **Backend:** Rust + Axum + PostgreSQL + SQLx
+- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS
 - **Cache de métricas:** Prometheus
 
 ## Requisitos
 
 - Rust 1.75+
 - PostgreSQL 14+
+- Node.js 18+ (para frontend)
 - Docker (para desenvolvimento)
 
 ## Configuração
@@ -37,6 +36,8 @@ cp .env.example .env
 
 ## Desenvolvimento
 
+### Backend
+
 ```bash
 # Preparar banco de dados
 createdb dex_account
@@ -47,6 +48,16 @@ sqlx migrate run
 # Executar
 cargo run
 ```
+
+### Frontend
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+O frontend em desenvolvimento faz proxy para `http://localhost:3000/api/*`.
 
 ## Produção
 
@@ -88,7 +99,7 @@ dex-account/
 ├── Dockerfile
 ├── migrations/
 │   └── 20240101000000_initial_schema.sql
-├── src/
+├── src/                       # Backend (Rust)
 │   ├── main.rs
 │   ├── bin/dex-account-recovery.rs
 │   ├── db/mod.rs
@@ -106,6 +117,17 @@ dex-account/
 │       ├── crypto.rs
 │       ├── metrics.rs
 │       └── mod.rs
+├── src/frontend/              # Frontend (React)
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── lib/
+│   │   ├── pages/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── Dockerfile
+│   ├── package.json
+│   └── vite.config.ts
 ├── Docs/
 │   ├── API.md
 │   ├── DOKPLOY.md

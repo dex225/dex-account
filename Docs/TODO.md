@@ -111,19 +111,24 @@ Melhorar o logging para incluir:
 
 **Referência SDD:** Seção 16 - Frontend (DEX Auth UI)
 
-**Status:** Não iniciado
+### ✅ Concluído
+- Setup: Vite + React + TypeScript
+- Estilização com Tailwind CSS
+- HTTP client com Axios + interceptors (refresh automático, 401 retry)
+- AuthContext com estado global de autenticação
+- Components: Button, Input, Spinner, Toast
+- Pages: LoginPage, TwoFactorPage, RecoveryPage, ResetPage, DashboardPage
+- Setup 2FA com QR Code (qrcode.react)
+- Dockerfile multi-stage (node:alpine + serve)
+- Domínio configurável via VITE_API_TARGET
 
-### Tarefas:
-1. Decidir entre Tailwind CSS ou CSS Modules
-2. Criar estrutura `/src/frontend/` com Vite + React + TypeScript
-3. Implementar páginas:
-   - `/` - Login
-   - `/2fa` - Verificação 2FA
-   - `/recovery` - Recuperação de senha
-   - `/dashboard` - Painel do usuário
-4. Criar Dockerfile (multi-stage com node:alpine)
-5. Configurar CI/CD (GitHub Actions)
-6. Criar app `dex-auth-ui` no Dokploy
+### ⏳ A Fazer
+1. Configurar CI/CD (GitHub Actions)
+2. Criar app `dex-auth-ui` no Dokploy
+3. Deploy via GitHub integration
+4. Configurar CORS no backend com domínio do frontend (se necessário)
+
+**Domínio:** `https://myaccount.agenciadex.com/` (já configurado no backend via `DEX_ALLOWED_ORIGINS`)
 
 ---
 
