@@ -63,11 +63,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState { pool };
 
     let allowed_origins = std::env::var("DEX_ALLOWED_ORIGINS")
-        .unwrap_or_else(|_| "https://myaccount.dex.com.br,https://app.dex.com.br".to_string());
+        .expect("DEX_ALLOWED_ORIGINS must be set");
 
     let origins: Vec<_> = allowed_origins
         .split(',')
-        .map(|s| s.trim().parse().unwrap())
+        .map(|s| s.trim().parse().expect("Invalid origin in DEX_ALLOWED_ORIGINS"))
         .collect();
 
     let cors = CorsLayer::new()
