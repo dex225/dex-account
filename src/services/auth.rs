@@ -296,6 +296,17 @@ impl AuthService {
         Ok(user)
     }
 
+    pub async fn create_admin_user(&self, email: &str, password: &str) -> Result<User, AppError> {
+        let password_hash = self.crypto.hash_password(password)?;
+        let user = db::create_user(&self.pool, email, &password_hash).await?;
+
+        if let Some(admin_role) = db::get_admin_role(&self.pool).await? {
+            db::assign_role_to_user(&self.pool, user.id, admin_role.id).await?;
+        }
+
+        Ok(user)
+    }
+
     pub async fn get_user(&self, user_id: Uuid) -> Result<User, AppError> {
         db::get_user_by_id(&self.pool, user_id)
             .await?

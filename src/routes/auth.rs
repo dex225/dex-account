@@ -19,17 +19,20 @@ pub struct AppState {
     pub auth: Arc<AuthService>,
     pub crypto: Arc<CryptoService>,
     pub emergency_api_key: String,
+    pub setup_token: String,
 }
 
 pub fn create_router(
     auth: Arc<AuthService>,
     crypto: Arc<CryptoService>,
     emergency_api_key: String,
+    setup_token: String,
 ) -> Router {
     let state = AppState {
         auth,
         crypto,
         emergency_api_key,
+        setup_token,
     };
 
     Router::new()
@@ -39,6 +42,7 @@ pub fn create_router(
         .route("/auth/logout", post(logout))
         .route("/auth/password/forgot", post(password_forgot).layer(password_forgot_rate_limit()))
         .route("/auth/password/reset", post(password_reset))
+        .route("/auth/setup", post(setup).layer(general_rate_limit()))
         .route("/auth/2fa/setup", post(setup_2fa).layer(general_rate_limit()))
         .route("/auth/2fa/enable", post(enable_2fa).layer(verify_2fa_rate_limit()))
         .route("/auth/emergency/recover", post(emergency_recover).layer(general_rate_limit()))
@@ -132,6 +136,22 @@ async fn password_reset(
 ) -> Result<Json<serde_json::Value>, AppError> {
     state.auth.password_reset(&req.token, &req.new_password).await?;
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
+}
+
+async fn setup(
+    State(state): State<AppState>,
+    Json(req): Json<SetupRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if req.token != state.setup_token {
+        return Err(AppError::Unauthorized);
+    }
+
+    let user = state.auth.create_admin_user(&req.email, &req.password).await?;
+
+    Ok(Json(serde_json::json!({
+        "message": "Admin user created successfully",
+        "user": UserResponse::from(user)
+    })))
 }
 
 async fn setup_2fa(

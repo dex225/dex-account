@@ -62,6 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let emergency_api_key =
         std::env::var("DEX_EMERGENCY_API_KEY").expect("DEX_EMERGENCY_API_KEY must be set");
 
+    let setup_token = std::env::var("DEX_SETUP_TOKEN").expect("DEX_SETUP_TOKEN must be set");
+
     let pool = create_pool(&database_url).await?;
 
     let crypto = Arc::new(CryptoService::new(jwt_secret));
@@ -93,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             HeaderName::from_static("x-emergency-key"),
         ]));
 
-    let auth_router = create_router(auth.clone(), crypto.clone(), emergency_api_key);
+    let auth_router = create_router(auth.clone(), crypto.clone(), emergency_api_key, setup_token);
 
     let health_router = Router::new()
         .route("/health", get(health))

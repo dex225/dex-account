@@ -46,6 +46,7 @@ No Dokploy, defina as variáveis no nível do serviço:
 | `DEX_EMERGENCY_API_KEY` | Chave para recuperação de emergência |
 | `DEX_ALLOWED_ORIGINS` | `https://myaccount.agenciadex.com` |
 | `DEX_AUTO_MIGRATE` | `false` (para produção) |
+| `DEX_SETUP_TOKEN` | Token para criar admin inicial (usado uma vez) |
 
 ### Configurar Domínios
 
@@ -60,6 +61,32 @@ Após o deploy, configure os domínios na aba **Domains**:
 | `frontend` | `myaccount.agenciadex.com` | 80 |
 
 **Importante:** Marque **HTTPS** para cada domínio (Let's Encrypt automático).
+
+### Criar Primeiro Usuário (Admin)
+
+Após o primeiro deploy, você precisa criar o admin inicial:
+
+1. **Gere um token aleatório:**
+```bash
+openssl rand -hex 32
+```
+
+2. **Configure a variável `DEX_SETUP_TOKEN` no Dokploy** com o token gerado
+
+3. **Faça a chamada API:**
+```bash
+curl -X POST https://api.agenciadex.com/api/v1/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "seu-token-aqui",
+    "email": "admin@agenciadex.com",
+    "password": "SuaSenhaForte123"
+  }'
+```
+
+4. **Remova ou altere o `DEX_SETUP_TOKEN`** após criar o admin (medida de segurança)
+
+**Importante:** O token de setup é consumido após o primeiro uso. Guarde-o em local seguro.
 
 ### Preview Compose
 
@@ -83,6 +110,7 @@ services:
       - DEX_EMERGENCY_API_KEY=${DEX_EMERGENCY_API_KEY}
       - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
       - DEX_AUTO_MIGRATE=${DEX_AUTO_MIGRATE:-false}
+      - DEX_SETUP_TOKEN=${DEX_SETUP_TOKEN}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -175,7 +203,8 @@ Projeto (compartilhado)
 Serviço Compose
 ├── DEX_JWT_SECRET=sua-chave-32-caracteres
 ├── DEX_EMERGENCY_API_KEY=sua-chave-emergencia
-└── DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
+├── DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
+└── DEX_SETUP_TOKEN=token-para-criar-admin
 ```
 
 ## 9. Como o Rate Limiting Funciona
@@ -241,8 +270,14 @@ Sem curl, o healthcheck `curl -f http://localhost:3000/health` falha, e o Traefi
 **Causa:** O frontend foi buildado com a variável `VITE_API_TARGET` errada ou não foi rebuildado após mudança.
 
 O valor de `VITE_API_TARGET` é hardcoded no bundle JavaScript no momento do build. Para corrigir:
-1. Rebuild o frontend localmente com o valor correto
+1. Rebuild o frontend com o valor correto
 2. Commit e push do novo `dist/`
+
+### Como criar o primeiro usuário admin
+
+1. Configure `DEX_SETUP_TOKEN` no Dokploy com um token aleatório
+2. Faça POST para `/api/v1/auth/setup` com o token, email e senha
+3. Após criar o admin, remova ou altere o token
 
 ### CORS errors
 
@@ -281,6 +316,7 @@ healthcheck:
 | Frontend chama localhost:3000 | Rebuild o frontend com `VITE_API_TARGET` correto e commitar dist/ |
 | Deploy falha com "webgateway not found" | Remover `webgateway` do docker-compose.yml (não existe no Dokploy) |
 | Rate limiting não funciona | Usar `SmartIpKeyExtractor` ao invés de `PeerIpKeyExtractor` |
+| Não consegue fazer primeiro login | Usar endpoint `/auth/setup` com `DEX_SETUP_TOKEN` para criar admin |
 
 ---
 

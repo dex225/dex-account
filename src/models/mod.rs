@@ -120,6 +120,13 @@ pub struct CreateUserRequest {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SetupRequest {
+    pub token: String,
+    pub email: String,
+    pub password: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct TwoFactorSetupResponse {
     pub totp_uri: String,

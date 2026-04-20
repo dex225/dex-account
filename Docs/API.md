@@ -38,6 +38,44 @@ POST /auth/login
 
 ---
 
+### Setup (Criar Admin Inicial)
+```
+POST /auth/setup
+```
+
+**Descrição:** Cria o primeiro usuário admin. Requer o token de setup configurado na variável de ambiente `DEX_SETUP_TOKEN`. Após uso, o token é invalidado automaticamente.
+
+**Variável de ambiente necessária:**
+- `DEX_SETUP_TOKEN` - Token secreto para permitir o registro do admin
+
+**Body:**
+```json
+{
+  "token": "seu-token-de-setup",
+  "email": "admin@agenciadex.com",
+  "password": "senhaSegura123"
+}
+```
+
+**Resposta (sucesso):**
+```json
+{
+  "message": "Admin user created successfully",
+  "user": {
+    "id": "uuid-do-usuario",
+    "email": "admin@agenciadex.com",
+    "is_2fa_enabled": false,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Códigos de erro:**
+- `401 Unauthorized` - Token incorreto ou inválido
+- `400 Bad Request` - Email ou senha inválidos
+
+---
+
 ### Verificar 2FA
 ```
 POST /auth/verify-2fa
