@@ -3,9 +3,21 @@ use std::sync::Arc;
 use axum::{
     extract::{Extension, State},
     middleware::from_fn_with_state,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use axum::http::{HeaderName, HeaderValue};
+
+const REFRESH_TOKEN_COOKIE: HeaderName = HeaderName::from_static("set-cookie");
+
+fn create_refresh_cookie(token: &str, max_age_secs: u64) -> HeaderValue {
+    HeaderValue::from_str(&format!(
+        "refresh_token={}; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age={}",
+        token, max_age_secs
+    ))
+    .expect("Invalid cookie header")
+}
 
 use crate::error::AppError;
 use crate::middleware::auth::{auth_middleware, AuthState, UserId};
@@ -57,45 +69,59 @@ pub fn create_router(
 async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Response, AppError> {
     let result = state.auth.login(&req.email, &req.password).await?;
 
     match result {
         crate::services::LoginResult::Success {
             access_token,
+            refresh_token,
             expires_in,
-            ..
-        } => Ok(Json(serde_json::json!({
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": expires_in
-        }))),
+        } => {
+            let mut response = Json(serde_json::json!({
+                "access_token": access_token,
+                "token_type": "Bearer",
+                "expires_in": expires_in
+            })).into_response();
+            response.headers_mut().insert(
+                REFRESH_TOKEN_COOKIE,
+                create_refresh_cookie(&refresh_token, 1296000),
+            );
+            Ok(response)
+        }
         crate::services::LoginResult::TwoFactorChallenge {
             challenge_token,
             expires_in,
         } => Ok(Json(serde_json::json!({
             "challenge_token": challenge_token,
             "expires_in": expires_in
-        }))),
+        })).into_response()),
     }
 }
 
 async fn verify_2fa(
     State(state): State<AppState>,
     Json(req): Json<VerifyTwoFactorRequest>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Response, AppError> {
     let result = state.auth.verify_2fa(&req.challenge_token, &req.code).await?;
 
     match result {
         crate::services::LoginResult::Success {
             access_token,
+            refresh_token,
             expires_in,
-            ..
-        } => Ok(Json(serde_json::json!({
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": expires_in
-        }))),
+        } => {
+            let mut response = Json(serde_json::json!({
+                "access_token": access_token,
+                "token_type": "Bearer",
+                "expires_in": expires_in
+            })).into_response();
+            response.headers_mut().insert(
+                REFRESH_TOKEN_COOKIE,
+                create_refresh_cookie(&refresh_token, 1296000),
+            );
+            Ok(response)
+        }
         _ => Err(AppError::InternalError),
     }
 }
@@ -103,26 +129,36 @@ async fn verify_2fa(
 async fn refresh(
     State(state): State<AppState>,
     req: axum::extract::Request,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Response, AppError> {
     let refresh_token = extract_refresh_token(&req)?;
 
     let result = state.auth.refresh(&refresh_token).await?;
 
-    Ok(Json(serde_json::json!({
+    let mut response = Json(serde_json::json!({
         "access_token": result.access_token,
         "token_type": "Bearer",
         "expires_in": result.expires_in
-    })))
+    })).into_response();
+    response.headers_mut().insert(
+        REFRESH_TOKEN_COOKIE,
+        create_refresh_cookie(&result.refresh_token, 1296000),
+    );
+    Ok(response)
 }
 
 async fn logout(
     State(state): State<AppState>,
     req: axum::extract::Request,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Response, AppError> {
     let refresh_token = extract_refresh_token(&req)?;
     state.auth.logout(&refresh_token).await?;
 
-    Ok(Json(serde_json::json!({ "message": "Logged out" })))
+    let mut response = Json(serde_json::json!({ "message": "Logged out" })).into_response();
+    response.headers_mut().insert(
+        REFRESH_TOKEN_COOKIE,
+        HeaderValue::from_str("refresh_token=; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=0").unwrap(),
+    );
+    Ok(response)
 }
 
 async fn password_forgot(
