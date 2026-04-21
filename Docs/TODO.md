@@ -61,14 +61,22 @@ git push
 
 ### ⚠️ Alto Prioridade
 
-#### 1. Persistência de Sessão (localStorage “Remember Me”)
-**Descrição:** Guardar JWT no localStorage para manter sessão após recarregar página.
+#### 1. Persistência de Sessão (Silent Refresh)
+**Descrição:** Ao abrir o app, dispara request silencioso para `/auth/refresh`. Se cookie de refresh for válido, restaura sessão automaticamente. O access token fica em memória (RAM), não localStorage - mantendo a segurança do HttpOnly cookie.
 
-**Status:** Não implementado
+**Status:** ✅ Implementado
 
-**Arquivos a modificar:**
-- `src/frontend/src/lib/api.ts` - guardar token no localStorage
-- `src/frontend/src/context/AuthContext.tsx` - restaurar sessão ao iniciar
+**Arquivos modificados:**
+- `src/frontend/src/context/AuthContext.tsx` - useEffect no mount para silent refresh
+
+**Fluxo:**
+1. App abre → `isLoading: true`
+2. `refreshAccessToken()` chamado automaticamente
+3. Cookie HttpOnly enviado com credentials
+4. Se válido → access token em memória, usuário logado
+5. Se inválido → `isLoading: false`, mostra login
+
+**Segurança:** Refresh token protegido por cookie HttpOnly + RTR. Access token nunca sai da memória RAM.
 
 ---
 
@@ -236,7 +244,7 @@ if ('access_token' in result) {
    - ✅ Criar admin via `/auth/setup`
 
 2. **Próximas Melhorias:**
-   - Persistência de sessão (localStorage "Remember Me")
+   - ✅ Persistência de sessão (Silent Refresh)
    - Rate limiting lockout 15min
    - Métricas Prometheus custom
    - Logging aprimorado

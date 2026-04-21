@@ -100,6 +100,7 @@ Consulte [Docs/API.md](Docs/API.md) para documentação completa dos endpoints.
 ## Funcionalidades
 
 - [x] Login/logout com JWT + Refresh Token Rotation (RTR)
+- [x] Sessão persistente com Silent Refresh (cookie HttpOnly + access token em memória)
 - [x] Autenticação em dois fatores (2FA) com TOTP
 - [x] Recuperação de senha
 - [x] Recuperação de emergência
