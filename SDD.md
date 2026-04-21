@@ -89,10 +89,11 @@ O sistema adota o padrão ouro de defesa em profundidade para Single Page Applic
     * **Payload:** `{ sub: "user_id", role: "Admin", exp: timestamp }`.
     * **Transporte:** Trafega no corpo da resposta da API, fica na memória RAM do frontend e é enviado via Header `Authorization: Bearer <token>`.
 2. **Refresh Token (Sessão Longa):**
-    * **Duração:** 15 a 30 dias.
+    * **Duração:** 15 dias.
     * **Geração:** O Rust gera uma string aleatória de 64 bytes usando `OsRng` em Base64.
     * **Armazenamento no Banco:** Faz-se o hash (SHA-256) da string e salva-se *apenas o hash*. Dumps de banco não vazam sessões utilizáveis.
-    * **Armazenamento no Cliente:** O token em texto claro viaja dentro de um Cookie com as flags `HttpOnly`, `Secure` e `SameSite=Strict`. O frontend não tem acesso de leitura a ele.
+    * **Armazenamento no Cliente:** O token em texto claro viaja dentro de um Cookie com as flags `HttpOnly`, `Secure`, `SameSite=Strict` e `Path=/`. O frontend não tem acesso de leitura a ele.
+    * **Silent Refresh:** Ao abrir o app, o frontend dispara automaticamente um request para `/refresh`. Se o cookie for válido, o usuário é logado automaticamente sem interação. O access token fica em memória RAM (nunca em localStorage), garantindo segurança contra XSS.
 3. **Refresh Token Rotation (RTR) com Revogação Granular:**
     * Toda vez que o Access Token vence, o navegador envia o Cookie automaticamente para a rota `/refresh`.
     * O servidor faz o hash do token recebido, busca no banco (`refresh_token_chains`):
@@ -155,8 +156,9 @@ A infraestrutura será configurada para bloquear comportamentos anômalos e inte
 * **HTTPS/TLS Obrigatório:** O sistema depende da flag `Secure` nos cookies, que não opera em conexões não-criptografadas. O Traefik (via Dokploy) gerenciará os certificados Let's Encrypt e forçará o redirecionamento de tráfego `HTTP -> HTTPS` em 100% das requisições.
 * **CORS Rigoroso (Cross-Origin Resource Sharing):** O servidor Axum bloqueará qualquer requisição originada de domínios não autorizados. A configuração aceitará origens explícitas (ex: `https://myaccount.dex.com.br`, `https://app.dex.com.br`) e definirá `Access-Control-Allow-Credentials: true` para permitir o fluxo dos cookies `HttpOnly` exclusivamente para esses domínios. Nenhuma rota utilizará o wildcard `*`.
 * **Rate Limiting (Proteção contra Força Bruta):** Implementação de *middleware* (como `tower-governor`) para limitar requisições por IP.
-  * **Rotas Críticas:** O endpoint `/verify-2fa` terá um limite rigoroso (ex: bloqueio por 15 minutos após 5 tentativas incorretas) para inviabilizar adivinhação do PIN de 6 dígitos. O endpoint `/login` seguirá padrão similar.
-  * **Prevenção de Spam:** A rota `/password/forgot` também será limitada para evitar sobrecarga no Microsserviço de E-mail.
+   * **Rotas Críticas:** O endpoint `/verify-2fa` terá um limite rigoroso para inviabilizar adivinhação do PIN de 6 dígitos. O endpoint `/login` seguirá padrão similar.
+   * **IP Lockout:** Após 5 tentativas incorretas, o IP é bloqueado por 15 minutos (implementado em `src/middleware/ip_lockout.rs`).
+   * **Prevenção de Spam:** A rota `/password/forgot` também será limitada para evitar sobrecarga no Microsserviço de E-mail.
 * **Health Checks:**
   * `GET /health` (Liveness): Retorna 200 se o processo está rodando.
   * `GET /ready` (Readiness): Verifica conexão com banco de dados antes de aceitar tráfego.

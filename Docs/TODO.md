@@ -68,7 +68,7 @@ git push
 
 **Arquivos modificados:**
 - `src/frontend/src/context/AuthContext.tsx` - useEffect no mount para silent refresh
-- `src/routes/auth.rs` - login/verify-2fa/refresh agora setam `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=1296000`
+- `src/routes/auth.rs` - login/verify-2fa/refresh setam `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=1296000`
 
 **Fluxo:**
 1. App abre → `isLoading: true`
@@ -79,38 +79,18 @@ git push
 
 **Segurança:** Refresh token protegido por cookie HttpOnly + RTR. Access token nunca sai da memória RAM.
 
-**Nota:** O frontend já tinha o silent refresh implementado, mas não funcionava porque o backend não setava o cookie. Corrigido em `c907487`.
-
 ---
 
-#### 2. Timer do 2FA não sincroniza com tempo real do código TOTP
-**Descrição:** O timer na página `/2fa` conta 5 minutos (hardcoded em `CHALLENGE_EXPIRY_SECONDS`), mas os códigos TOTP expiram a cada 30 segundos no Google Authenticator. O utilizador vê um timer de contagem decrescente que não corresponde ao tempo real de validade do código.
-
-**Status:** Não implementado
-
-**Causa:** O `challenge_token` expira em 5 minutos no backend, mas o timer do frontend não reflete o ciclo real de 30 segundos dos códigos TOTP.
-
-**Solução:**
-1. Usar o `expires_in` retornado pelo backend (`challenge_token.exp`) para calcular o tempo restante real
-2. Implementar sincronização com o relógio do servidor
-3. O timer deveria mostrar os segundos restantes do código TOTP atual, não um countdown arbitrário
-
-**Arquivos a modificar:**
-- `src/frontend/src/pages/TwoFactorPage.tsx` - usar tempo real do challenge_token
-- `src/frontend/src/lib/constants.ts` - ajustar ou remover `CHALLENGE_EXPIRY_SECONDS`
-
----
-
-#### 3. Rate Limiting - Lockout 15min após 5 falhas
+#### 2. IP Lockout após 5 tentativas falhadas
 **Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no login e verify-2fa. Após bloqueio, retorna erro 429 "Too many failed attempts. Account locked for X minutes".
 
 **Status:** ✅ Implementado
 
 **Arquivos modificados:**
-- `src/middleware/ip_lockout.rs` - novo módulo com DashMap para tracking
-- `src/middleware/client_ip.rs` - extração de IP do cliente (X-Forwarded-For, X-Real-IP, socket)
-- `src/error/mod.rs` - adicionar variante `IpLocked(u64)`
-- `src/routes/auth.rs` - aplicar lockout check em login e verify_2fa
+- `src/middleware/ip_lockout.rs` - tracking de tentativas por IP (DashMap)
+- `src/middleware/client_ip.rs` - extração de IP dos headers (X-Forwarded-For, X-Real-IP)
+- `src/error/mod.rs` - nova variante `IpLocked(u64)`
+- `src/routes/auth.rs` - lockout check em login e verify_2fa
 
 **Configuração:**
 - Max tentativas: 5
@@ -183,7 +163,7 @@ O rate limiting atual usa `tower-governor` com `SmartIpKeyExtractor`:
 | `/auth/password/forgot` | 1 req/s, burst 3 |
 | Demais endpoints | 10 req/s, burst 50 |
 
-**Pendência:** "bloqueio por 15 minutos após 5 tentativas incorretas" não implementado.
+**IP Lockout:** Após 5 tentativas incorretas em `/auth/login` ou `/auth/verify-2fa`, o IP é bloqueado por 15 minutos (retorna 429).
 
 ---
 

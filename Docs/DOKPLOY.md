@@ -218,13 +218,30 @@ O backend usa `tower-governor` com `SmartIpKeyExtractor`, que lê:
 1. O Traefik deve enviar os headers `X-Forwarded-For` ou `X-Real-IP`
 2. No Dokploy, isso é configurado automaticamente pelo Dokploy
 
-## 10. Monitoramento
+## 10. IP Lockout (Proteção contra Força Bruta)
+
+Após 5 tentativas incorretas de login ou verificação 2FA, o IP é bloqueado por 15 minutos.
+
+**Headers usados para identificar o IP:**
+- `X-Forwarded-For` (primeiro IP da cadeia)
+- `X-Real-IP`
+- Fallback: IP da conexão direta
+
+**Resposta quando bloqueado:**
+```json
+{
+  "error": "Too many failed attempts. Account locked for 15 minutes"
+}
+```
+HTTP Status: 429
+
+## 11. Monitoramento
 
 Cada serviço pode ser monitorado separadamente:
 - Logs: disponível na aba **Logs**
 - Métricas: Prometheus exporter na porta 3001 (API)
 
-## 11. Variáveis de Ambiente Resumidas
+## 12. Variáveis de Ambiente Resumidas
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
@@ -235,7 +252,7 @@ Cada serviço pode ser monitorado separadamente:
 | `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente |
 | `DEX_SETUP_TOKEN` | Sim* | Token para criar admin inicial (usado uma vez) |
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Container não inicia
 
@@ -266,13 +283,9 @@ RUN apt-get update && apt-get install -y ca-certificates libssl3 curl && rm -rf 
 
 Sem curl, o healthcheck `curl -f http://localhost:3000/health` falha, e o Traefik não consegue detectar o container.
 
-### Frontend chama localhost:3000 em vez da API correta
+### IP bloqueado após tentativas
 
-**Causa:** O frontend foi buildado com a variável `VITE_API_TARGET` errada ou não foi rebuildado após mudança.
-
-O valor de `VITE_API_TARGET` é hardcoded no bundle JavaScript no momento do build. Para corrigir:
-1. Rebuild o frontend com o valor correto
-2. Commit e push do novo `dist/`
+Se você foi bloqueado pelo IP lockout, aguarde 15 minutos ou use outro IP.
 
 ### Como criar o primeiro usuário admin
 
@@ -284,7 +297,7 @@ O valor de `VITE_API_TARGET` é hardcoded no bundle JavaScript no momento do bui
 
 Garantir que `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem espaços.
 
-## 13. Segurança em Produção
+## 14. Segurança em Produção
 
 ### Variáveis Sensíveis
 
@@ -308,7 +321,7 @@ healthcheck:
   retries: 3
 ```
 
-## 14. Problemas Conhecidos e Soluções
+## 15. Problemas Conhecidos e Soluções
 
 | Problema | Solução |
 |----------|---------|
@@ -318,6 +331,7 @@ healthcheck:
 | Deploy falha com "webgateway not found" | Remover `webgateway` do docker-compose.yml (não existe no Dokploy) |
 | Rate limiting não funciona | Usar `SmartIpKeyExtractor` ao invés de `PeerIpKeyExtractor` |
 | Não consegue fazer primeiro login | Usar endpoint `/auth/setup` com `DEX_SETUP_TOKEN` para criar admin |
+| IP bloqueado após 5 tentativas | Aguardar 15 minutos (IP lockout) |
 
 ---
 

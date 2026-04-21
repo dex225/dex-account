@@ -374,5 +374,5 @@ GET /metrics
 | 401 | InvalidCredentials / InvalidToken / TokenExpired |
 | 403 | Forbidden / UserInactive |
 | 404 | UserNotFound |
-| 429 | RateLimitExceeded |
+| 429 | RateLimitExceeded / IpLocked (X minutes) |
 | 500 | Internal Server Error |

@@ -105,6 +105,7 @@ Consulte [Docs/API.md](Docs/API.md) para documentação completa dos endpoints.
 - [x] Recuperação de senha
 - [x] Recuperação de emergência
 - [x] Rate limiting por IP (funciona com Traefik/Dokploy)
+- [x] IP lockout após 5 tentativas falhadas (15 min bloqueado)
 - [x] Métricas Prometheus (porta 3001)
 - [x] Health checks (/health, /ready)
 - [x] Cleanup automático de tokens expirados
@@ -135,6 +136,8 @@ dex-account/
 │   ├── error/mod.rs
 │   ├── middleware/
 │   │   ├── auth.rs             # Middleware de autenticação JWT
+│   │   ├── client_ip.rs       # Extração de IP dos headers
+│   │   ├── ip_lockout.rs      # IP lockout após tentativas falhadas
 │   │   ├── mod.rs
 │   │   └── rate_limit.rs
 │   ├── models/mod.rs
