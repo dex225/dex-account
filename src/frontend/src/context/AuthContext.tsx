@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -11,6 +11,7 @@ import {
   enable2FA as apiEnable2FA,
   getMe as apiGetMe,
   setAccessToken,
+  refreshAccessToken,
   type LoginResponse,
   type TwoFactorChallengeResponse,
   type User,
@@ -43,8 +44,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accessToken: null,
     user: null,
     isAuthenticated: false,
-    isLoading: false,
+    isLoading: true,
   });
+
+  useEffect(() => {
+    refreshAccessToken()
+      .then(async (token) => {
+        if (token) {
+          setAccessToken(token);
+          const user = await apiGetMe();
+          setState({
+            accessToken: token,
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          setState((prev) => ({ ...prev, isLoading: false }));
+        }
+      })
+      .catch(() => {
+        setState((prev) => ({ ...prev, isLoading: false }));
+      });
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
