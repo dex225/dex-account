@@ -96,6 +96,9 @@ git push
 - Max tentativas: 5
 - Lockout duration: 15 minutos
 
+**⚠️ Limitação Atual (não é bug, é design):**
+O `DashMap` é em-memória. Se o contêiner for reiniciado, o histórico de tentativas é perdido. Para o volume atual, isso é aceitável. No futuro, quando escalar, migrar para Redis.
+
 ---
 
 ### 📊 Médio Prioridade
