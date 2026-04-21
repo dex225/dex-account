@@ -23,8 +23,8 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: src/frontend/Dockerfile
+      context: ./src/frontend
+      dockerfile: Dockerfile
     expose:
       - 80
     environment:
