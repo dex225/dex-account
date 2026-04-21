@@ -1,5 +1,5 @@
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -42,7 +42,10 @@ impl CryptoService {
     pub fn verify_password(&self, password: &str, hash: &str) -> Result<bool, AppError> {
         let parsed_hash =
             PasswordHash::new(hash).map_err(|_| AppError::InternalError)?;
-        Ok(parsed_hash.verify_password(&[], password).is_ok())
+        match self.argon2.verify_password(password.as_bytes(), &parsed_hash) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 
     pub fn hash_token(&self, token: &str) -> String {
@@ -201,6 +204,9 @@ mod tests {
     fn test_password_hash_and_verify() {
         let service = CryptoService::new("test-secret".to_string());
         let hash = service.hash_password("password123").unwrap();
+        eprintln!("Hash: {}", hash);
+        let result = service.verify_password("password123", &hash);
+        eprintln!("Verify result: {:?}", result);
         assert!(service.verify_password("password123", &hash).unwrap());
         assert!(!service.verify_password("wrongpassword", &hash).unwrap());
     }
