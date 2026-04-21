@@ -68,6 +68,7 @@ git push
 
 **Arquivos modificados:**
 - `src/frontend/src/context/AuthContext.tsx` - useEffect no mount para silent refresh
+- `src/routes/auth.rs` - login/verify-2fa/refresh agora setam `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=1296000`
 
 **Fluxo:**
 1. App abre → `isLoading: true`
@@ -77,6 +78,8 @@ git push
 5. Se inválido → `isLoading: false`, mostra login
 
 **Segurança:** Refresh token protegido por cookie HttpOnly + RTR. Access token nunca sai da memória RAM.
+
+**Nota:** O frontend já tinha o silent refresh implementado, mas não funcionava porque o backend não setava o cookie. Corrigido em `c907487`.
 
 ---
 
