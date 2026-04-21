@@ -61,7 +61,7 @@ git push
 
 ### ⚠️ Alto Prioridade
 
-#### 1. Persistência de Sessão (localStorage "Remember Me")
+#### 1. Persistência de Sessão (localStorage “Remember Me”)
 **Descrição:** Guardar JWT no localStorage para manter sessão após recarregar página.
 
 **Status:** Não implementado
@@ -72,7 +72,25 @@ git push
 
 ---
 
-#### 2. Rate Limiting - Lockout 15min após 5 falhas
+#### 2. Timer do 2FA não sincroniza com tempo real do código TOTP
+**Descrição:** O timer na página `/2fa` conta 5 minutos (hardcoded em `CHALLENGE_EXPIRY_SECONDS`), mas os códigos TOTP expiram a cada 30 segundos no Google Authenticator. O utilizador vê um timer de contagem decrescente que não corresponde ao tempo real de validade do código.
+
+**Status:** Não implementado
+
+**Causa:** O `challenge_token` expira em 5 minutos no backend, mas o timer do frontend não reflete o ciclo real de 30 segundos dos códigos TOTP.
+
+**Solução:**
+1. Usar o `expires_in` retornado pelo backend (`challenge_token.exp`) para calcular o tempo restante real
+2. Implementar sincronização com o relógio do servidor
+3. O timer deveria mostrar os segundos restantes do código TOTP atual, não um countdown arbitrário
+
+**Arquivos a modificar:**
+- `src/frontend/src/pages/TwoFactorPage.tsx` - usar tempo real do challenge_token
+- `src/frontend/src/lib/constants.ts` - ajustar ou remover `CHALLENGE_EXPIRY_SECONDS`
+
+---
+
+#### 3. Rate Limiting - Lockout 15min após 5 falhas
 **Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa
 
 **Status:** Não implementado
@@ -85,7 +103,7 @@ git push
 
 ### 📊 Médio Prioridade
 
-#### 3. Métricas Prometheus Custom
+#### 4. Métricas Prometheus Custom
 **Descrição:** Instrumentar métricas custom:
 - `auth_login_total`
 - `auth_login_failed_total`
@@ -100,7 +118,7 @@ git push
 
 ---
 
-#### 4. Logging Aprimorado
+#### 5. Logging Aprimorado
 **Descrição:** Adicionar request_id (UUIDv7), IP, user-agent aos logs
 
 **Status:** Parcial - logs existem mas sem request_id
@@ -112,7 +130,7 @@ git push
 
 ---
 
-#### 5. Otimização Docker Cache
+#### 6. Otimização Docker Cache
 **Descrição:** Criar `src/lib.rs` para separar dependências do código
 
 **Benefício:** Build mais rápido em produção (deps cached)
@@ -125,7 +143,7 @@ git push
 
 ### 📊 Baixa Prioridade
 
-#### 6. OpenTelemetry Tracing Completo
+#### 7. OpenTelemetry Tracing Completo
 **Descrição:** Spans customizados para login, 2fa, refresh, logout
 
 **Crates necessários:**
@@ -193,6 +211,20 @@ if ('access_token' in result) {
 ```
 
 **Arquivo modificado:** `src/frontend/src/context/AuthContext.tsx`
+
+---
+
+### Timer do 2FA não corresponde ao tempo real do código TOTP
+
+**Descrição:** O timer na página `/2fa` mostra uma contagem decrescente de 5 minutos (hardcoded), mas os códigos TOTP expiram a cada 30 segundos no Google Authenticator. O utilizador não sabe quando o código realmente vai expirar.
+
+**Causa:** O `CHALLENGE_EXPIRY_SECONDS = 300` (5 minutos) está hardcoded em `src/frontend/src/lib/constants.ts`, mas o backend retorna o `expires_in` real no `challenge_token`. Além disso, códigos TOTP têm vida útil de ~30 segundos.
+
+**Status:** Bug - a ser corrigido
+
+**Solução:**
+1. Usar o `expires_in` retornado pelo `/auth/login` para calcular o tempo real
+2. Idealmente sincronizar com o ciclo de 30 segundos do TOTP
 
 ---
 
