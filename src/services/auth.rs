@@ -13,6 +13,8 @@ pub struct AuthService {
     pool: DbPool,
     crypto: Arc<CryptoService>,
     challenge_tokens: Arc<RwLock<HashMap<String, Uuid>>>,
+    notifier_url: Option<String>,
+    notifier_api_key: Option<String>,
 }
 
 impl AuthService {
@@ -21,7 +23,15 @@ impl AuthService {
             pool,
             crypto,
             challenge_tokens: Arc::new(RwLock::new(HashMap::new())),
+            notifier_url: None,
+            notifier_api_key: None,
         }
+    }
+
+    pub fn with_notifier(mut self, url: String, api_key: String) -> Self {
+        self.notifier_url = Some(url);
+        self.notifier_api_key = Some(api_key);
+        self
     }
 
     pub fn pool(&self) -> &DbPool {
@@ -262,6 +272,40 @@ impl AuthService {
             user.id,
             token_hash
         );
+
+        if let (Some(notifier_url), Some(notifier_api_key)) = (&self.notifier_url, &self.notifier_api_key) {
+            let action_url = format!("{}/reset?token={}", std::env::var("DEX_ACCOUNT_URL").unwrap_or_else(|_| "https://myaccount.agenciadex.com".to_string()), token);
+
+            let payload = serde_json::json!({
+                "to": email,
+                "channel": "email",
+                "template": "password_reset",
+                "data": {
+                    "user_name": email.split('@').next().unwrap_or("User"),
+                    "action_url": action_url
+                }
+            });
+
+            let client = reqwest::Client::new();
+            match client
+                .post(format!("{}/api/v1/send", notifier_url))
+                .header("x-notifier-api-key", notifier_api_key.as_str())
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send()
+                .await
+            {
+                Ok(response) if response.status().is_success() => {
+                    tracing::info!("Password reset email sent to {}", email);
+                }
+                Ok(response) => {
+                    tracing::error!("Failed to send password reset email: HTTP {}", response.status());
+                }
+                Err(e) => {
+                    tracing::error!("Failed to send password reset email: {}", e);
+                }
+            }
+        }
 
         Ok(())
     }

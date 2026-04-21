@@ -68,7 +68,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = create_pool(&database_url).await?;
 
     let crypto = Arc::new(CryptoService::new(jwt_secret));
-    let auth = Arc::new(AuthService::new(pool.clone(), crypto.clone()));
+    let mut auth = AuthService::new(pool.clone(), crypto.clone());
+
+    if let (Ok(notifier_url), Ok(notifier_api_key)) = (
+        std::env::var("DEX_NOTIFIER_URL"),
+        std::env::var("DEX_NOTIFIER_API_KEY"),
+    ) {
+        tracing::info!("Configuring DEX Notifier at {}", notifier_url);
+        auth = auth.with_notifier(notifier_url, notifier_api_key);
+    } else {
+        tracing::warn!("DEX_NOTIFIER_URL or DEX_NOTIFIER_API_KEY not set - password reset emails will not be sent");
+    }
+
+    let auth = Arc::new(auth);
 
     let app_state = AppState { pool };
 
