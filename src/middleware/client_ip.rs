@@ -1,5 +1,5 @@
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     middleware::Next,
     response::Response,
 };
@@ -8,6 +8,7 @@ use axum::{
 pub struct ClientIp(pub std::net::IpAddr);
 
 pub async fn client_ip_middleware(
+    State(_state): State<()>,
     mut req: Request,
     next: Next,
 ) -> Response {
