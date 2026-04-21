@@ -9,6 +9,9 @@ use axum::{
 };
 use axum::http::{HeaderName, HeaderValue};
 
+use crate::middleware::client_ip::client_ip_middleware;
+use crate::middleware::ClientIp;
+
 const REFRESH_TOKEN_COOKIE: HeaderName = HeaderName::from_static("set-cookie");
 
 fn create_refresh_cookie(token: &str, max_age_secs: u64) -> HeaderValue {
@@ -21,6 +24,7 @@ fn create_refresh_cookie(token: &str, max_age_secs: u64) -> HeaderValue {
 
 use crate::error::AppError;
 use crate::middleware::auth::{auth_middleware, AuthState, UserId};
+use crate::middleware::ip_lockout::IpLockout;
 use crate::middleware::rate_limit::{
     general_rate_limit, login_rate_limit, password_forgot_rate_limit, verify_2fa_rate_limit,
 };
@@ -33,6 +37,7 @@ pub struct AppState {
     pub crypto: Arc<CryptoService>,
     pub emergency_api_key: String,
     pub setup_token: String,
+    pub ip_lockout: IpLockout,
 }
 
 pub fn create_router(
@@ -40,17 +45,20 @@ pub fn create_router(
     crypto: Arc<CryptoService>,
     emergency_api_key: String,
     setup_token: String,
+    ip_lockout: IpLockout,
 ) -> Router {
     let state = AppState {
         auth,
         crypto: crypto.clone(),
         emergency_api_key,
         setup_token,
+        ip_lockout,
     };
 
     let auth_state = AuthState { crypto };
 
     Router::new()
+        .layer(axum::middleware::from_fn_with_state((), client_ip_middleware))
         .route("/auth/login", post(login).layer(login_rate_limit()))
         .route("/auth/verify-2fa", post(verify_2fa).layer(verify_2fa_rate_limit()))
         .route("/auth/refresh", post(refresh))
@@ -68,16 +76,25 @@ pub fn create_router(
 
 async fn login(
     State(state): State<AppState>,
+    Extension(client_ip): Extension<ClientIp>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
-    let result = state.auth.login(&req.email, &req.password).await?;
+    let ip = client_ip.0.to_string();
+
+    if state.ip_lockout.is_locked(&ip) {
+        let remaining = state.ip_lockout.get_remaining_lockout_secs(&ip).unwrap_or(900);
+        return Err(AppError::IpLocked(remaining / 60));
+    }
+
+    let result = state.auth.login(&req.email, &req.password).await;
 
     match result {
-        crate::services::LoginResult::Success {
+        Ok(crate::services::LoginResult::Success {
             access_token,
             refresh_token,
             expires_in,
-        } => {
+        }) => {
+            state.ip_lockout.record_success(&ip);
             let mut response = Json(serde_json::json!({
                 "access_token": access_token,
                 "token_type": "Bearer",
@@ -89,28 +106,43 @@ async fn login(
             );
             Ok(response)
         }
-        crate::services::LoginResult::TwoFactorChallenge {
+        Ok(crate::services::LoginResult::TwoFactorChallenge {
             challenge_token,
             expires_in,
-        } => Ok(Json(serde_json::json!({
+        }) => Ok(Json(serde_json::json!({
             "challenge_token": challenge_token,
             "expires_in": expires_in
         })).into_response()),
+        Err(e) => {
+            if matches!(e, AppError::InvalidCredentials) {
+                state.ip_lockout.record_failure(&ip);
+            }
+            Err(e)
+        }
     }
 }
 
 async fn verify_2fa(
     State(state): State<AppState>,
+    Extension(client_ip): Extension<ClientIp>,
     Json(req): Json<VerifyTwoFactorRequest>,
 ) -> Result<Response, AppError> {
-    let result = state.auth.verify_2fa(&req.challenge_token, &req.code).await?;
+    let ip = client_ip.0.to_string();
+
+    if state.ip_lockout.is_locked(&ip) {
+        let remaining = state.ip_lockout.get_remaining_lockout_secs(&ip).unwrap_or(900);
+        return Err(AppError::IpLocked(remaining / 60));
+    }
+
+    let result = state.auth.verify_2fa(&req.challenge_token, &req.code).await;
 
     match result {
-        crate::services::LoginResult::Success {
+        Ok(crate::services::LoginResult::Success {
             access_token,
             refresh_token,
             expires_in,
-        } => {
+        }) => {
+            state.ip_lockout.record_success(&ip);
             let mut response = Json(serde_json::json!({
                 "access_token": access_token,
                 "token_type": "Bearer",
@@ -121,6 +153,12 @@ async fn verify_2fa(
                 create_refresh_cookie(&refresh_token, 1296000),
             );
             Ok(response)
+        }
+        Err(e) => {
+            if matches!(e, AppError::InvalidTwoFactorCode) {
+                state.ip_lockout.record_failure(&ip);
+            }
+            Err(e)
         }
         _ => Err(AppError::InternalError),
     }

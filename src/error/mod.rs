@@ -33,6 +33,9 @@ pub enum AppError {
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
 
+    #[error("Too many failed attempts. Account locked for {0} minutes")]
+    IpLocked(u64),
+
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 
@@ -61,6 +64,7 @@ impl IntoResponse for AppError {
             AppError::TwoFactorRequired => (StatusCode::UNAUTHORIZED, self.to_string()),
             AppError::InvalidTwoFactorCode => (StatusCode::UNAUTHORIZED, self.to_string()),
             AppError::RateLimitExceeded => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
+            AppError::IpLocked(_) => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
             AppError::Database(e) => {
                 tracing::error!("Database error: {:?}", e);
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())

@@ -22,6 +22,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::db::{create_pool, DbPool};
+use crate::middleware::IpLockout;
 use crate::routes::create_router;
 use crate::services::{AuthService, CryptoService};
 
@@ -96,7 +97,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             HeaderName::from_static("x-emergency-key"),
         ]));
 
-    let auth_router = create_router(auth.clone(), crypto.clone(), emergency_api_key, setup_token);
+    let ip_lockout = IpLockout::new();
+    let auth_router = create_router(auth.clone(), crypto.clone(), emergency_api_key, setup_token, ip_lockout);
 
     let health_router = Router::new()
         .route("/health", get(health))

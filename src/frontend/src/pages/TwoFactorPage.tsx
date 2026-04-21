@@ -1,11 +1,11 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { useAuth } from '@/context/AuthContext';
-import { ROUTES, CHALLENGE_EXPIRY_SECONDS } from '@/lib/constants';
+import { ROUTES } from '@/lib/constants';
 
 export function TwoFactorPage() {
   const navigate = useNavigate();
@@ -13,30 +13,13 @@ export function TwoFactorPage() {
   const { verify2FA, isLoading } = useAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(CHALLENGE_EXPIRY_SECONDS);
 
   const challengeToken = location.state?.challengeToken as string;
 
-  useEffect(() => {
-    if (!challengeToken) {
-      navigate(ROUTES.HOME);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          toast.error('Código expirado. Faça login novamente.');
-          navigate(ROUTES.HOME);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [challengeToken, navigate]);
+  if (!challengeToken) {
+    navigate(ROUTES.HOME);
+    return null;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -57,21 +40,12 @@ export function TwoFactorPage() {
     }
   }
 
-  function formatTime(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
-
   return (
     <div className="page-container">
       <div className="card">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Verificação em duas etapas</h1>
           <p className="text-slate-500 mt-1">Digite o código do seu autenticador</p>
-          <p className="text-sm text-slate-400 mt-2">
-            Código expira em <span className="font-mono text-slate-600">{formatTime(countdown)}</span>
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

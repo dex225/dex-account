@@ -27,6 +27,7 @@ governor = "0.6"
 metrics = "0.22"
 metrics-exporter-prometheus = "0.13"
 thiserror = "1"
+dashmap = "5"
 
 [profile.release]
 lto = true

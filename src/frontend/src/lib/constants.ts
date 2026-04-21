@@ -25,5 +25,4 @@ export const ROUTES = {
 } as const;
 
 export const TOKEN_EXPIRY_SECONDS = 15 * 60;
-export const CHALLENGE_EXPIRY_SECONDS = 5 * 60;
 export const PASSWORD_RESET_EXPIRY_MINUTES = 30;
