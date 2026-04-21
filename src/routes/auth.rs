@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Extension, State},
-    middleware::from_fn_with_state,
+    middleware::{from_fn, from_fn_with_state},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -58,7 +58,7 @@ pub fn create_router(
     let auth_state = AuthState { crypto };
 
     Router::new()
-        .layer(axum::middleware::from_fn_with_state((), client_ip_middleware))
+        .layer(axum::middleware::from_fn(client_ip_middleware))
         .route("/auth/login", post(login).layer(login_rate_limit()))
         .route("/auth/verify-2fa", post(verify_2fa).layer(verify_2fa_rate_limit()))
         .route("/auth/refresh", post(refresh))
