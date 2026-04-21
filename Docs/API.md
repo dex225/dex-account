@@ -318,6 +318,25 @@ Authorization: Bearer <access_token>
 
 ---
 
+## Middleware de Autenticação
+
+As seguintes rotas **requerem autenticação** via JWT token no header:
+
+```
+Authorization: Bearer <access_token>
+```
+
+| Endpoint | Descrição |
+|----------|----------|
+| `GET /users/me` | Obter perfil do usuário logado |
+| `POST /users/create` | Criar novo usuário (requer role admin) |
+| `POST /auth/2fa/setup` | Configurar 2FA |
+| `POST /auth/2fa/enable` | Habilitar 2FA |
+
+Se o token estiver ausente, inválido ou expirado, retorna `401 Unauthorized`.
+
+---
+
 ## Health Checks
 
 ### Liveness

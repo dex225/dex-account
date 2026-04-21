@@ -233,6 +233,7 @@ Cada serviço pode ser monitorado separadamente:
 | `DEX_EMERGENCY_API_KEY` | Sim | Chave de emergência |
 | `DEX_ALLOWED_ORIGINS` | Sim | URLs CORS |
 | `DEX_AUTO_MIGRATE` | Não | Executa migrations automaticamente |
+| `DEX_SETUP_TOKEN` | Sim* | Token para criar admin inicial (usado uma vez) |
 
 ## 12. Troubleshooting
 

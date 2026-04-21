@@ -40,7 +40,10 @@ DEX_JWT_SECRET=sua-chave-secreta-minimo-32-caracteres
 DEX_EMERGENCY_API_KEY=sua-chave-de-emergencia
 DEX_ALLOWED_ORIGINS=https://myaccount.agenciadex.com
 DEX_AUTO_MIGRATE=false
+DEX_SETUP_TOKEN=token-para-criar-admin-inicial
 ```
+
+**Importante:** Após criar o primeiro admin via `/auth/setup`, remova ou altere o `DEX_SETUP_TOKEN`.
 
 ### 4. Configurar Domínios
 
@@ -106,6 +109,8 @@ Consulte [Docs/API.md](Docs/API.md) para documentação completa dos endpoints.
 - [x] Cleanup automático de tokens expirados
 - [x] Migrations automáticas
 - [x] Docker Compose configurado para Dokploy
+- [x] Middleware de autenticação para rotas protegidas
+- [x] Setup inicial via `/auth/setup` para criar primeiro admin
 
 ---
 
@@ -115,16 +120,20 @@ Consulte [Docs/API.md](Docs/API.md) para documentação completa dos endpoints.
 dex-account/
 ├── Cargo.toml
 ├── Dockerfile                    # Backend Rust multi-stage
+├── Dockerfile.frontend          # Frontend build stage
 ├── docker-compose.yml           # Dokploy Docker Compose
+├── .env.example
+├── .env.production              # Vars build-time do frontend
+├── .gitignore
+├── .dockerignore
 ├── migrations/
 │   └── 20240101000000_initial_schema.sql
-├── src/
+├── src/                         # Backend Rust
 │   ├── main.rs
-│   ├── bin/dex-account-recovery.rs
 │   ├── db/mod.rs
 │   ├── error/mod.rs
 │   ├── middleware/
-│   │   ├── auth.rs
+│   │   ├── auth.rs             # Middleware de autenticação JWT
 │   │   ├── mod.rs
 │   │   └── rate_limit.rs
 │   ├── models/mod.rs
@@ -141,19 +150,20 @@ dex-account/
 │   │   ├── components/
 │   │   ├── context/
 │   │   ├── lib/
+│   │   │   ├── api.ts          # Cliente API com interceptors
+│   │   │   └── constants.ts
 │   │   ├── pages/
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── Dockerfile
+│   ├── nginx.conf              # Config nginx para SPA
 │   ├── dist/                    # Build pré-compilado
 │   ├── package.json
 │   └── vite.config.ts
-├── Docs/
-│   ├── API.md
-│   ├── DOKPLOY.md
-│   └── TODO.md
-├── .env.example
-└── .gitignore
+└── Docs/
+    ├── API.md                   # Referência completa da API
+    ├── DOKPLOY.md               # Guia de deploy no Dokploy
+    └── TODO.md
 ```
 
 ---
@@ -206,6 +216,31 @@ Verifique se `DEX_ALLOWED_ORIGINS` contém exatamente as URLs do frontend, sem e
 1. Verificar se o container `frontend` está rodando
 2. Verificar logs do container frontend
 3. Confirmar que o domínio está configurado para porta 80
+
+### Frontend chama localhost:3000 em vez da API correta
+
+O frontend é buildado com `VITE_API_TARGET` hardcoded no bundle. Se a URL da API estiver errada:
+1. Edite `src/frontend/.env.production` com a URL correta
+2. Rebuild: `cd src/frontend && npm run build`
+3. Commit e push do novo `dist/`
+
+---
+
+## Criar Primeiro Admin
+
+Após o primeiro deploy, use o endpoint `/auth/setup`:
+
+```bash
+curl -X POST https://api.agenciadex.com/api/v1/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "seu-DEX_SETUP_TOKEN",
+    "email": "admin@agenciadex.com",
+    "password": "SuaSenhaForte123"
+  }'
+```
+
+Consulte [Docs/DOKPLOY.md](Docs/DOKPLOY.md) para instruções completas.
 
 ---
 

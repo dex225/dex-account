@@ -14,6 +14,8 @@
 - Docker multi-stage build
 - Cleanup automático de tokens expirados
 - Tracing/logging
+- Middleware de autenticação para rotas protegidas
+- Setup inicial via `/auth/setup` para criar primeiro admin
 - **curl adicionado ao container** para healthcheck funcionar
 
 ### ✅ Frontend - PRONTO PARA DEPLOY
@@ -59,7 +61,18 @@ git push
 
 ### ⚠️ Alto Prioridade
 
-#### 1. Rate Limiting - Lockout 15min após 5 falhas
+#### 1. Persistência de Sessão (localStorage "Remember Me")
+**Descrição:** Guardar JWT no localStorage para manter sessão após recarregar página.
+
+**Status:** Não implementado
+
+**Arquivos a modificar:**
+- `src/frontend/src/lib/api.ts` - guardar token no localStorage
+- `src/frontend/src/context/AuthContext.tsx` - restaurar sessão ao iniciar
+
+---
+
+#### 2. Rate Limiting - Lockout 15min após 5 falhas
 **Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa
 
 **Status:** Não implementado
@@ -72,7 +85,7 @@ git push
 
 ### 📊 Médio Prioridade
 
-#### 2. Métricas Prometheus Custom
+#### 3. Métricas Prometheus Custom
 **Descrição:** Instrumentar métricas custom:
 - `auth_login_total`
 - `auth_login_failed_total`
@@ -87,7 +100,7 @@ git push
 
 ---
 
-#### 3. Logging Aprimorado
+#### 4. Logging Aprimorado
 **Descrição:** Adicionar request_id (UUIDv7), IP, user-agent aos logs
 
 **Status:** Parcial - logs existem mas sem request_id
@@ -99,7 +112,7 @@ git push
 
 ---
 
-#### 4. Otimização Docker Cache
+#### 5. Otimização Docker Cache
 **Descrição:** Criar `src/lib.rs` para separar dependências do código
 
 **Benefício:** Build mais rápido em produção (deps cached)
@@ -112,7 +125,7 @@ git push
 
 ### 📊 Baixa Prioridade
 
-#### 5. OpenTelemetry Tracing Completo
+#### 6. OpenTelemetry Tracing Completo
 **Descrição:** Spans customizados para login, 2fa, refresh, logout
 
 **Crates necessários:**
@@ -144,9 +157,10 @@ O rate limiting atual usa `tower-governor` com `SmartIpKeyExtractor`:
 1. **Deploy (agora):**
    - ✅ Deploy com Docker Compose no Dokploy
    - ✅ Verificar funcionamento em produção
-   - ⚠️ Rebuild frontend se necessário
+   - ✅ Criar admin via `/auth/setup`
 
 2. **Próximas Melhorias:**
+   - Persistência de sessão (localStorage "Remember Me")
    - Rate limiting lockout 15min
    - Métricas Prometheus custom
    - Logging aprimorado
