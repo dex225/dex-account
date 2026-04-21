@@ -152,6 +152,26 @@ O rate limiting atual usa `tower-governor` com `SmartIpKeyExtractor`:
 
 ---
 
+## Problemas Conhecidos
+
+### Erro no console ao abrir /2fa (Bootstrap Autofill)
+
+**Descrição:** Ao abrir a página `/2fa`, aparece erro no console:
+```
+bootstrap-autofill-overlay.js:1269 Uncaught (in promise) NotFoundError: Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.
+```
+
+**Causa:** Erro interno do módulo de preenchimento automático do browser (Bitwarden/1Password). O código da aplicação não é a causa direta - é uma interferência da extensão do gerenciador de senhas ao manipular o DOM.
+
+**Status:** Bug externo - extensão do browser
+
+**Solução:**
+1. Testar desabilitando extensões de preenchimento automático (Bitwarden, 1Password, etc)
+2. Se persistir, verificar se há alguma interferência com o QR code ou input de 2FA
+3. Este erro não afeta a funcionalidade do 2FA
+
+---
+
 ## Ordem de Implementação Recomendada
 
 1. **Deploy (agora):**
