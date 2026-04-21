@@ -1,43 +1,24 @@
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::http::HeaderMap;
+use std::net::IpAddr;
 
-#[derive(Clone, Copy)]
-pub struct ClientIp(pub std::net::IpAddr);
-
-pub async fn client_ip_middleware(
-    mut req: Request,
-    next: Next,
-) -> Response {
-    let ip = extract_ip_from_request(&req);
-    req.extensions_mut().insert(ClientIp(ip));
-    next.run(req).await
-}
-
-fn extract_ip_from_request(req: &Request) -> std::net::IpAddr {
-    if let Some(addr) = req.extensions().get::<std::net::SocketAddr>() {
-        return addr.ip();
-    }
-
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+pub fn extract_ip_from_headers(headers: &HeaderMap) -> String {
+    if let Some(forwarded) = headers.get("x-forwarded-for") {
         if let Ok(forwarded_str) = forwarded.to_str() {
             if let Some(ip_str) = forwarded_str.split(',').next() {
-                if let Ok(ip) = ip_str.trim().parse() {
-                    return ip;
+                if let Ok(ip) = ip_str.trim().parse::<IpAddr>() {
+                    return ip.to_string();
                 }
             }
         }
     }
 
-    if let Some(real_ip) = req.headers().get("x-real-ip") {
+    if let Some(real_ip) = headers.get("x-real-ip") {
         if let Ok(ip_str) = real_ip.to_str() {
-            if let Ok(ip) = ip_str.parse() {
-                return ip;
+            if let Ok(ip) = ip_str.parse::<IpAddr>() {
+                return ip.to_string();
             }
         }
     }
 
-    std::net::IpAddr::from([127, 0, 0, 1])
+    "127.0.0.1".to_string()
 }

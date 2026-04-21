@@ -2,15 +2,14 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Extension, State},
-    middleware::{from_fn, from_fn_with_state},
+    middleware::from_fn_with_state,
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
-use axum::http::{HeaderName, HeaderValue};
+use axum::http::{HeaderMap, HeaderName, HeaderValue};
 
-use crate::middleware::client_ip::client_ip_middleware;
-use crate::middleware::ClientIp;
+use crate::middleware::client_ip::extract_ip_from_headers;
 
 const REFRESH_TOKEN_COOKIE: HeaderName = HeaderName::from_static("set-cookie");
 
@@ -58,7 +57,6 @@ pub fn create_router(
     let auth_state = AuthState { crypto };
 
     Router::new()
-        .layer(axum::middleware::from_fn(client_ip_middleware))
         .route("/auth/login", post(login).layer(login_rate_limit()))
         .route("/auth/verify-2fa", post(verify_2fa).layer(verify_2fa_rate_limit()))
         .route("/auth/refresh", post(refresh))
@@ -76,17 +74,17 @@ pub fn create_router(
 
 async fn login(
     State(state): State<AppState>,
-    Extension(client_ip): Extension<ClientIp>,
-    Json(req): Json<LoginRequest>,
+    headers: HeaderMap,
+    Json(payload): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
-    let ip = client_ip.0.to_string();
+    let ip = extract_ip_from_headers(&headers);
 
     if state.ip_lockout.is_locked(&ip) {
         let remaining = state.ip_lockout.get_remaining_lockout_secs(&ip).unwrap_or(900);
         return Err(AppError::IpLocked(remaining / 60));
     }
 
-    let result = state.auth.login(&req.email, &req.password).await;
+    let result = state.auth.login(&payload.email, &payload.password).await;
 
     match result {
         Ok(crate::services::LoginResult::Success {
@@ -124,17 +122,17 @@ async fn login(
 
 async fn verify_2fa(
     State(state): State<AppState>,
-    Extension(client_ip): Extension<ClientIp>,
-    Json(req): Json<VerifyTwoFactorRequest>,
+    headers: HeaderMap,
+    Json(payload): Json<VerifyTwoFactorRequest>,
 ) -> Result<Response, AppError> {
-    let ip = client_ip.0.to_string();
+    let ip = extract_ip_from_headers(&headers);
 
     if state.ip_lockout.is_locked(&ip) {
         let remaining = state.ip_lockout.get_remaining_lockout_secs(&ip).unwrap_or(900);
         return Err(AppError::IpLocked(remaining / 60));
     }
 
-    let result = state.auth.verify_2fa(&req.challenge_token, &req.code).await;
+    let result = state.auth.verify_2fa(&payload.challenge_token, &payload.code).await;
 
     match result {
         Ok(crate::services::LoginResult::Success {
