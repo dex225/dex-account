@@ -102,13 +102,19 @@ git push
 ---
 
 #### 3. Rate Limiting - Lockout 15min após 5 falhas
-**Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no verify-2fa
+**Descrição:** Implementar bloqueio por 15 minutos após 5 tentativas incorretas no login e verify-2fa. Após bloqueio, retorna erro 429 "Too many failed attempts. Account locked for X minutes".
 
-**Status:** Não implementado
+**Status:** ✅ Implementado
 
-**Arquivos a modificar:**
-- `src/middleware/rate_limit.rs` - adicionar novo limiter
-- `src/routes/auth.rs` - adicionar lógica de lockout
+**Arquivos modificados:**
+- `src/middleware/ip_lockout.rs` - novo módulo com DashMap para tracking
+- `src/middleware/client_ip.rs` - extração de IP do cliente (X-Forwarded-For, X-Real-IP, socket)
+- `src/error/mod.rs` - adicionar variante `IpLocked(u64)`
+- `src/routes/auth.rs` - aplicar lockout check em login e verify_2fa
+
+**Configuração:**
+- Max tentativas: 5
+- Lockout duration: 15 minutos
 
 ---
 
@@ -248,7 +254,7 @@ if ('access_token' in result) {
 
 2. **Próximas Melhorias:**
    - ✅ Persistência de sessão (Silent Refresh)
-   - Rate limiting lockout 15min
+   - ✅ Rate limiting lockout 15min
    - Métricas Prometheus custom
    - Logging aprimorado
 
