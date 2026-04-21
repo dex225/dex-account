@@ -30,6 +30,10 @@ impl CryptoService {
         }
     }
 
+    pub fn jwt_secret(&self) -> &str {
+        &self.jwt_secret
+    }
+
     pub fn hash_password(&self, password: &str) -> Result<String, AppError> {
         let salt = SaltString::generate(&mut OsRng);
         let hash = self

@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Extension, State},
+    middleware::from_fn_with_state,
     routing::{get, post},
     Json, Router,
 };
 
 use crate::error::AppError;
-use crate::middleware::auth::UserId;
+use crate::middleware::auth::{auth_middleware, AuthState, UserId};
 use crate::middleware::rate_limit::{
     general_rate_limit, login_rate_limit, password_forgot_rate_limit, verify_2fa_rate_limit,
 };
@@ -30,10 +31,12 @@ pub fn create_router(
 ) -> Router {
     let state = AppState {
         auth,
-        crypto,
+        crypto: crypto.clone(),
         emergency_api_key,
         setup_token,
     };
+
+    let auth_state = AuthState { crypto };
 
     Router::new()
         .route("/auth/login", post(login).layer(login_rate_limit()))
@@ -43,11 +46,11 @@ pub fn create_router(
         .route("/auth/password/forgot", post(password_forgot).layer(password_forgot_rate_limit()))
         .route("/auth/password/reset", post(password_reset))
         .route("/auth/setup", post(setup).layer(general_rate_limit()))
-        .route("/auth/2fa/setup", post(setup_2fa).layer(general_rate_limit()))
-        .route("/auth/2fa/enable", post(enable_2fa).layer(verify_2fa_rate_limit()))
+        .route("/auth/2fa/setup", post(setup_2fa).layer(general_rate_limit()).layer(from_fn_with_state(auth_state.clone(), auth_middleware)))
+        .route("/auth/2fa/enable", post(enable_2fa).layer(verify_2fa_rate_limit()).layer(from_fn_with_state(auth_state.clone(), auth_middleware)))
         .route("/auth/emergency/recover", post(emergency_recover).layer(general_rate_limit()))
-        .route("/users/create", post(create_user).layer(general_rate_limit()))
-        .route("/users/me", get(get_me))
+        .route("/users/create", post(create_user).layer(general_rate_limit()).layer(from_fn_with_state(auth_state.clone(), auth_middleware)))
+        .route("/users/me", get(get_me).layer(from_fn_with_state(auth_state, auth_middleware)))
         .with_state(state)
 }
 

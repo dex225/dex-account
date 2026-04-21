@@ -1,13 +1,25 @@
+use std::sync::Arc;
+
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     middleware::Next,
     response::Response,
 };
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::services::CryptoService;
 
-pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, AppError> {
+#[derive(Clone)]
+pub struct AuthState {
+    pub crypto: Arc<CryptoService>,
+}
+
+pub async fn auth_middleware(
+    State(state): State<AuthState>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, AppError> {
     let auth_header = req
         .headers()
         .get("Authorization")
@@ -18,17 +30,9 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, A
         _ => return Err(AppError::Unauthorized),
     };
 
-    let claims = req
-        .extensions()
-        .get::<crate::models::Claims>()
-        .cloned();
+    let claims = state.crypto.validate_token(token)?;
 
-    if claims.is_none() {
-        return Err(AppError::Unauthorized);
-    }
-
-    let user_id = Uuid::parse_str(&claims.as_ref().unwrap().sub)
-        .map_err(|_| AppError::InvalidToken)?;
+    let user_id = Uuid::parse_str(&claims.sub).map_err(|_| AppError::InvalidToken)?;
 
     req.extensions_mut().insert(UserId(user_id));
 
