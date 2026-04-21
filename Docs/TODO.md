@@ -172,6 +172,30 @@ bootstrap-autofill-overlay.js:1269 Uncaught (in promise) NotFoundError: Failed t
 
 ---
 
+### Bug no fluxo 2FA - botão começa a girar antes do usuário digitar código
+
+**Descrição:** Ao fazer login e ser redirecionado para `/2fa`, o botão "Verificar" já entra no estado `isLoading` (girando) antes do usuário digitar o código ou clicar no botão. Quando o usuário digita o código, nada acontece.
+
+**Causa:** No `AuthContext.tsx`, quando `login()` retorna `challenge_token` (2FA necessário), a função retornava sem resetar `isLoading` para `false`. O `isLoading` ficava `true` permanentemente.
+
+**Status:** ✅ Corrigido
+
+**Correção:**
+```javascript
+// AuthContext.tsx - login()
+if ('access_token' in result) {
+  // login sem 2FA
+  setState({ ... isLoading: false });
+} else {
+  // login com 2FA - resetar isLoading também!
+  setState((prev) => ({ ...prev, isLoading: false }));
+}
+```
+
+**Arquivo modificado:** `src/frontend/src/context/AuthContext.tsx`
+
+---
+
 ## Ordem de Implementação Recomendada
 
 1. **Deploy (agora):**

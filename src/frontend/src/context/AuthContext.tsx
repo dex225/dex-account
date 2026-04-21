@@ -58,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isAuthenticated: true,
           isLoading: false,
         });
+      } else {
+        setState((prev) => ({ ...prev, isLoading: false }));
       }
       return result;
     } catch (error) {
