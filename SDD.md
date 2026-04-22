@@ -296,9 +296,19 @@ O DEX Account utiliza o microsserviço **DEX Notifier** para envio de emails tra
 
 ### 18.1 Configuração
 ```env
-DEX_NOTIFIER_URL=https://notifier.agenciadex.com
+# Comunicação interna (recomendado)
+DEX_NOTIFIER_URL=http://notifier:3000
+
+# Comunicação pública (alternativa)
+# DEX_NOTIFIER_URL=https://notifier.agenciadex.com
 DEX_NOTIFIER_API_KEY=<chave_api>
 ```
+
+### 18.2 Modo Interno
+Quando `DEX_NOTIFIER_INTERNAL_ONLY=true` no Notifier:
+- O Notifier expõe apenas `/health` e `/ready` publicamente
+- `/api/v1/send` só é acessível via Docker network interna
+- DEX Account chama `http://notifier:3000` diretamente
 
 ### 18.2 Fluxo de Recuperação de Senha
 1. Usuário solicita `POST /auth/password/forgot` com email

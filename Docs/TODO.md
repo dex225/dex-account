@@ -116,9 +116,18 @@ O `DashMap` é em-memória. Se o contêiner for reiniciado, o histórico de tent
 
 **Variáveis de ambiente:**
 ```env
-DEX_NOTIFIER_URL=https://notifier.agenciadex.com
+# Comunicação interna (recomendado para produção)
+DEX_NOTIFIER_URL=http://notifier:3000
+
+# Comunicação pública (alternativa)
+# DEX_NOTIFIER_URL=https://notifier.agenciadex.com
 DEX_NOTIFIER_API_KEY=<chave_api_notifier>
 ```
+
+**Modo interno:**
+- Quando `DEX_NOTIFIER_INTERNAL_ONLY=true` no Notifier
+- Comunicação ocorre via Docker network (`http://notifier:3000`)
+- Não expõe `/api/v1/send` publicamente
 
 **Fluxo:**
 1. Usuário solicita `/auth/password/forgot` com email

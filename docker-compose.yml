@@ -12,7 +12,7 @@ services:
       - DEX_ALLOWED_ORIGINS=${DEX_ALLOWED_ORIGINS}
       - DEX_AUTO_MIGRATE=${DEX_AUTO_MIGRATE:-false}
       - DEX_SETUP_TOKEN=${DEX_SETUP_TOKEN}
-      - DEX_NOTIFIER_URL=${DEX_NOTIFIER_URL}
+      - DEX_NOTIFIER_URL=${DEX_NOTIFIER_URL:-http://notifier:3000}
       - DEX_NOTIFIER_API_KEY=${DEX_NOTIFIER_API_KEY}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
