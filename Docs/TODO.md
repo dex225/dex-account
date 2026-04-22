@@ -5,7 +5,7 @@
 ### ✅ Backend - PRODUÇÃO
 - Login/logout com JWT + RTR (Refresh Token Rotation)
 - 2FA com TOTP
-- Recuperação de senha
+- Recuperação de senha (via DEX Notifier)
 - Recuperação de emergência
 - Health checks (/health, /ready)
 - Rate limiting com SmartIpKeyExtractor (funciona com Traefik)
@@ -17,6 +17,7 @@
 - Middleware de autenticação para rotas protegidas
 - Setup inicial via `/auth/setup` para criar primeiro admin
 - **curl adicionado ao container** para healthcheck funcionar
+- **Integração com DEX Notifier** para envio de emails transacionais
 
 ### ✅ Frontend - PRONTO PARA DEPLOY
 - Setup: Vite + React + TypeScript
@@ -98,6 +99,35 @@ git push
 
 **⚠️ Limitação Atual (não é bug, é design):**
 O `DashMap` é em-memória. Se o contêiner for reiniciado, o histórico de tentativas é perdido. Para o volume atual, isso é aceitável. No futuro, quando escalar, migrar para Redis.
+
+---
+
+#### 3. Integração com DEX Notifier (Envio de Emails)
+**Descrição:** Ao solicitar recuperação de senha, o DEX Account chama o serviço DEX Notifier via HTTP para enviar email com o link de reset.
+
+**Status:** ✅ Implementado
+
+**Arquivos modificados:**
+- `Cargo.toml` - adicionado `reqwest` para HTTP client
+- `src/main.rs` - configuração do notifier via env vars
+- `src/services/auth.rs` - chamada HTTP para `/api/v1/send`
+- `src/services/notifier.rs` - módulo dedicado para chamadas ao notifier
+- `docker-compose.yml` - variáveis `DEX_NOTIFIER_URL` e `DEX_NOTIFIER_API_KEY`
+
+**Variáveis de ambiente:**
+```env
+DEX_NOTIFIER_URL=https://notifier.agenciadex.com
+DEX_NOTIFIER_API_KEY=<chave_api_notifier>
+```
+
+**Fluxo:**
+1. Usuário solicita `/auth/password/forgot` com email
+2. Backend gera token, salva hash no DB
+3. Backend faz POST para `DEX_NOTIFIER_URL/api/v1/send`
+4. Notifier envia email com link de recuperação
+5. Usuário clica no link e faz reset via `/auth/password/reset`
+
+**Testado e funcionando em produção** (2026-04-21)
 
 ---
 

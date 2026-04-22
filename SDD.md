@@ -289,4 +289,36 @@ Arquitetura do painel de autenticação para usuários finais.
   3. Reiniciar aplicação
 * **Testes:** Restore procedure testado trimestralmente
 
+---
+
+## 18. Integração com DEX Notifier
+O DEX Account utiliza o microsserviço **DEX Notifier** para envio de emails transacionais (recuperação de senha, bem-vindo, etc).
+
+### 18.1 Configuração
+```env
+DEX_NOTIFIER_URL=https://notifier.agenciadex.com
+DEX_NOTIFIER_API_KEY=<chave_api>
+```
+
+### 18.2 Fluxo de Recuperação de Senha
+1. Usuário solicita `POST /auth/password/forgot` com email
+2. Backend valida email, gera token único, salva hash SHA-256 no DB com expiração
+3. Backend faz `POST {DEX_NOTIFIER_URL}/api/v1/send` com:
+   - Header: `x-notifier-api-key: {API_KEY}`
+   - Body: `{ to, channel: "email", template: "password_reset", data: { user_name, action_url } }`
+4. DEX Notifier renderiza template React Email, envia via SMTP
+5. Usuário recebe email com link: `https://myaccount.agenciadex.com/reset?token={token}`
+6. Usuário clica no link, faz reset em `POST /auth/password/reset`
+
+### 18.3 Segurança
+- API key armazenada em variável de ambiente (não em código)
+- Token de reset é hash SHA-256 (armazenado, não o token em si)
+- Expiração curta (30 minutos)
+- Token é de uso único (deleted após uso)
+
+### 18.4 Monitoramento
+- Logs do DEX Account mostram "Password reset email sent to {email}"
+- Logs do DEX Notifier mostram status de envio
+- Falha no envio NÃO bloqueia o fluxo (usuário ainda pode fazer reset se tiver token)
+
 (End of file - total 297 lines)
